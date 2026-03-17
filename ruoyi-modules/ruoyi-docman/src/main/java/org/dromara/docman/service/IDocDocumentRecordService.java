@@ -3,6 +3,7 @@ package org.dromara.docman.service;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 
 public interface IDocDocumentRecordService {
@@ -14,4 +15,9 @@ public interface IDocDocumentRecordService {
     void recordUpload(DocDocumentRecordBo bo);
 
     void markObsoleteByProjectId(Long projectId);
+
+    /**
+     * 记录插件自动生成的文档（系统内部调用，不做权限校验）
+     */
+    void recordPluginGenerated(DocDocumentRecord record);
 }

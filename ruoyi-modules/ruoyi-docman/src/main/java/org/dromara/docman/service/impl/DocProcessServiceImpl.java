@@ -65,4 +65,12 @@ public class DocProcessServiceImpl implements IDocProcessService {
                 .eq(DocProcessConfig::getProjectId, projectId)
         );
     }
+
+    @Override
+    public DocProcessConfig getByInstanceId(Long instanceId) {
+        return configMapper.selectOne(
+            new LambdaQueryWrapper<DocProcessConfig>()
+                .eq(DocProcessConfig::getInstanceId, instanceId)
+        );
+    }
 }

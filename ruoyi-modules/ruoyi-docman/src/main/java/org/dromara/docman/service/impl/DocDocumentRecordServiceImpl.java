@@ -11,6 +11,7 @@ import org.dromara.docman.domain.bo.DocDocumentRecordBo;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.enums.DocDocumentStatus;
+import org.dromara.docman.domain.service.DocDocumentStateMachine;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
@@ -57,12 +58,18 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     }
 
     @Override
+    public void recordPluginGenerated(DocDocumentRecord record) {
+        baseMapper.insert(record);
+    }
+
+    @Override
     public void markObsoleteByProjectId(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         baseMapper.selectList(new LambdaQueryWrapper<DocDocumentRecord>()
                 .eq(DocDocumentRecord::getProjectId, projectId)
                 .in(DocDocumentRecord::getStatus, DocDocumentStatus.PENDING.getCode(), DocDocumentStatus.RUNNING.getCode(), DocDocumentStatus.GENERATED.getCode(), DocDocumentStatus.FAILED.getCode()))
             .forEach(record -> {
+                DocDocumentStateMachine.checkTransition(DocDocumentStatus.of(record.getStatus()), DocDocumentStatus.OBSOLETE);
                 record.setStatus(DocDocumentStatus.OBSOLETE.getCode());
                 baseMapper.updateById(record);
             });

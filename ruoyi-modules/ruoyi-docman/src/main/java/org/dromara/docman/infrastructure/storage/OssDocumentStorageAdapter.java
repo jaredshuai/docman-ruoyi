@@ -8,6 +8,7 @@ import org.dromara.common.oss.factory.OssFactory;
 import org.dromara.docman.application.port.out.DocumentStoragePort;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 
 @Slf4j
 @InfrastructureAdapter("S3/OSS 文档存储")
@@ -36,6 +37,18 @@ public class OssDocumentStorageAdapter implements DocumentStoragePort {
         } catch (Exception e) {
             log.error("存储文件失败: {}", path, e);
             throw e;
+        }
+    }
+
+    @Override
+    public InputStream download(String path) {
+        try {
+            OssClient client = OssFactory.instance();
+            String key = normalize(path);
+            return client.getObjectContent(key);
+        } catch (Exception e) {
+            log.error("下载文件失败: {}", path, e);
+            throw new RuntimeException("下载文件失败: " + path, e);
         }
     }
 
