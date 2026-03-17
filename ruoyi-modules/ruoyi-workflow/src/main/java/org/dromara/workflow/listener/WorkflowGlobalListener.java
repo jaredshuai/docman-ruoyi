@@ -9,9 +9,13 @@ import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.enums.BusinessStatusEnum;
+import org.dromara.common.core.domain.event.WorkflowNodeFinishedEvent;
+import org.dromara.workflow.utils.WorkflowNodeExtParser;
 import org.dromara.common.core.service.UserService;
 import org.dromara.common.core.utils.StreamUtils;
+import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.core.utils.StringUtils;
+import org.dromara.common.tenant.helper.TenantHelper;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.dto.FlowParams;
 import org.dromara.warm.flow.core.entity.Definition;
@@ -214,6 +218,7 @@ public class WorkflowGlobalListener implements GlobalListener {
                 flowProcessEventHandler.processTaskHandler(definition.getFlowCode(), instance, nextTask, params);
             }
         }
+        publishNodeFinishedEvent(listenerVariable, params);
         if (ObjectUtil.isNull(flowParams)) {
             return;
         }
@@ -243,6 +248,29 @@ public class WorkflowGlobalListener implements GlobalListener {
             FlowConstant.MESSAGE_NOTICE,
             FlowConstant.SUBMIT
         );
+    }
+
+    private void publishNodeFinishedEvent(ListenerVariable listenerVariable, Map<String, Object> params) {
+        Task currentTask = listenerVariable.getTask();
+        if (currentTask == null) {
+            return;
+        }
+        Instance instance = listenerVariable.getInstance();
+        Definition definition = listenerVariable.getDefinition();
+
+        WorkflowNodeFinishedEvent event = new WorkflowNodeFinishedEvent();
+        event.setTenantId(TenantHelper.getTenantId());
+        event.setFlowCode(definition.getFlowCode());
+        event.setInstanceId(instance.getId());
+        event.setBusinessId(instance.getBusinessId());
+        event.setNodeType(currentTask.getNodeType());
+        event.setNodeCode(currentTask.getNodeCode());
+        event.setNodeName(currentTask.getNodeName());
+        event.setNodeExt(listenerVariable.getNode() != null ? listenerVariable.getNode().getExt() : null);
+        event.setStatus(instance.getFlowStatus());
+        event.setParams(params);
+        WorkflowNodeExtParser.enrich(event);
+        SpringUtils.context().publishEvent(event);
     }
 
     /**

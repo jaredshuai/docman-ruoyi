@@ -268,3 +268,14 @@ justauth:
       client-id: 10**********6
       client-secret: 1f7d08**********5b7**********29e
       redirect-uri: ${justauth.address}/social-callback?source=gitea
+
+--- # 文档管理模块配置
+docman:
+  ai:
+    api-url: http://localhost:11434/api/generate
+    model: qwen2.5
+    timeout: 60000
+    max-tokens: 4096
+  knowledge:
+    base-url: http://localhost:8000
+    timeout: 30000

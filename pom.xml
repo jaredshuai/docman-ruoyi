@@ -349,6 +349,11 @@
                 <artifactId>ruoyi-demo</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>ruoyi-docman</artifactId>
+                <version>${revision}</version>
+            </dependency>
 
             <!--  工作流模块  -->
             <dependency>
