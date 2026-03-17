@@ -57,7 +57,6 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
         if (project == null) {
             throw new ServiceException("项目不存在");
         }
-        DocProjectStateMachine.checkTransition(DocProjectStatus.of(project.getStatus()), DocProjectStatus.ARCHIVED);
 
         List<DocDocumentRecord> records = documentRecordMapper.selectList(
             new LambdaQueryWrapper<DocDocumentRecord>()
@@ -96,6 +95,7 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
             documentRecordMapper.updateById(record);
         }
 
+        DocProjectStateMachine.checkTransition(DocProjectStatus.of(project.getStatus()), DocProjectStatus.ARCHIVED);
         project.setStatus(DocProjectStatus.ARCHIVED.getCode());
         projectMapper.updateById(project);
 
