@@ -1,17 +1,17 @@
 package org.dromara.docman.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.docman.application.port.out.SystemMessagePort;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProcessConfig;
 import org.dromara.docman.domain.entity.DocProject;
-import org.dromara.docman.domain.enums.DocDocumentStatus;
-import org.dromara.docman.mapper.DocDocumentRecordMapper;
-import org.dromara.docman.mapper.DocProcessConfigMapper;
-import org.dromara.docman.mapper.DocProjectMapper;
+import org.dromara.docman.domain.enums.DocProcessConfigStatus;
+import org.dromara.docman.domain.enums.DocProjectStatus;
+import org.dromara.docman.service.IDocDocumentRecordService;
 import org.dromara.docman.service.IDocDocumentReminderService;
+import org.dromara.docman.service.IDocProcessConfigService;
+import org.dromara.docman.service.IDocProjectService;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -29,12 +29,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DocDocumentReminderServiceImpl implements IDocDocumentReminderService {
 
-    private static final String PROCESS_STATUS_RUNNING = "running";
-    private static final String PROJECT_STATUS_ACTIVE = "active";
-
-    private final DocProcessConfigMapper processConfigMapper;
-    private final DocProjectMapper projectMapper;
-    private final DocDocumentRecordMapper documentRecordMapper;
+    private final IDocProcessConfigService processConfigService;
+    private final IDocProjectService projectService;
+    private final IDocDocumentRecordService documentRecordService;
     private final SystemMessagePort systemMessagePort;
 
     @Override
@@ -42,11 +39,7 @@ public class DocDocumentReminderServiceImpl implements IDocDocumentReminderServi
         int effectiveOverdueDays = Math.max(overdueDays, 1);
         Date cutoffTime = Date.from(Instant.now().minus(effectiveOverdueDays, ChronoUnit.DAYS));
 
-        List<DocProcessConfig> runningConfigs = processConfigMapper.selectList(
-            new LambdaQueryWrapper<DocProcessConfig>()
-                .eq(DocProcessConfig::getStatus, PROCESS_STATUS_RUNNING)
-                .select(DocProcessConfig::getProjectId)
-        );
+        List<DocProcessConfig> runningConfigs = processConfigService.listByStatus(DocProcessConfigStatus.RUNNING);
         if (runningConfigs.isEmpty()) {
             return 0;
         }
@@ -59,11 +52,7 @@ public class DocDocumentReminderServiceImpl implements IDocDocumentReminderServi
             return 0;
         }
 
-        List<DocProject> activeProjects = projectMapper.selectList(
-            new LambdaQueryWrapper<DocProject>()
-                .in(DocProject::getId, runningProjectIds)
-                .eq(DocProject::getStatus, PROJECT_STATUS_ACTIVE)
-        );
+        List<DocProject> activeProjects = projectService.listByIdsAndStatus(runningProjectIds, DocProjectStatus.ACTIVE);
         if (activeProjects.isEmpty()) {
             return 0;
         }
@@ -71,13 +60,8 @@ public class DocDocumentReminderServiceImpl implements IDocDocumentReminderServi
         Map<Long, DocProject> projectMap = activeProjects.stream()
             .collect(Collectors.toMap(DocProject::getId, Function.identity()));
 
-        List<DocDocumentRecord> overduePendingRecords = documentRecordMapper.selectList(
-            new LambdaQueryWrapper<DocDocumentRecord>()
-                .in(DocDocumentRecord::getProjectId, projectMap.keySet())
-                .eq(DocDocumentRecord::getStatus, DocDocumentStatus.PENDING.getCode())
-                .le(DocDocumentRecord::getCreateTime, cutoffTime)
-                .select(DocDocumentRecord::getProjectId)
-        );
+        List<DocDocumentRecord> overduePendingRecords = documentRecordService
+            .listPendingCreatedBeforeByProjectIds(List.copyOf(projectMap.keySet()), cutoffTime);
         if (overduePendingRecords.isEmpty()) {
             return 0;
         }

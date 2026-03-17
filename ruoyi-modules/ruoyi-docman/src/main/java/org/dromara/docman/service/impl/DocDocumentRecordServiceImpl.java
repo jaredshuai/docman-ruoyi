@@ -9,6 +9,7 @@ import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.docman.application.assembler.DocDocumentAssembler;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
+import org.dromara.docman.domain.enums.DocDocumentSourceType;
 import org.dromara.docman.domain.enums.DocDocumentStatus;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.service.DocDocumentStateMachine;
@@ -20,6 +21,7 @@ import org.dromara.docman.service.IDocDocumentRecordService;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -53,7 +55,7 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     public void recordUpload(DocDocumentRecordBo bo) {
         projectAccessService.assertAction(bo.getProjectId(), DocProjectAction.UPLOAD_DOCUMENT);
         DocDocumentRecord record = documentAssembler.toEntity(bo);
-        record.setSourceType("upload");
+        record.setSourceType(DocDocumentSourceType.UPLOAD.getCode());
         record.setStatus(DocDocumentStatus.GENERATED.getCode());
         record.setGeneratedAt(new Date());
         baseMapper.insert(record);
@@ -64,7 +66,7 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
         DocDocumentRecord record = new DocDocumentRecord();
         record.setProjectId(projectId);
         record.setPluginId(pluginId);
-        record.setSourceType("plugin");
+        record.setSourceType(DocDocumentSourceType.PLUGIN.getCode());
         record.setFileName(file.getFileName());
         record.setNasPath(file.getNasPath());
         record.setOssId(file.getOssId());
@@ -84,5 +86,19 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
                 record.setStatus(DocDocumentStatus.OBSOLETE.getCode());
                 baseMapper.updateById(record);
             });
+    }
+
+    @Override
+    public List<DocDocumentRecord> listPendingCreatedBeforeByProjectIds(List<Long> projectIds, Date cutoffTime) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return List.of();
+        }
+        return baseMapper.selectList(
+            new LambdaQueryWrapper<DocDocumentRecord>()
+                .in(DocDocumentRecord::getProjectId, projectIds)
+                .eq(DocDocumentRecord::getStatus, DocDocumentStatus.PENDING.getCode())
+                .le(DocDocumentRecord::getCreateTime, cutoffTime)
+                .select(DocDocumentRecord::getProjectId)
+        );
     }
 }

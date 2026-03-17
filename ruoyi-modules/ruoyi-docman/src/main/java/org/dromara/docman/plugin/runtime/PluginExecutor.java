@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.docman.application.port.out.PluginExecutionLogPort;
 import org.dromara.docman.domain.entity.DocPluginExecutionLog;
+import org.dromara.docman.domain.enums.DocPluginExecutionStatus;
 import org.dromara.docman.plugin.PluginResult;
 import org.springframework.stereotype.Component;
 
@@ -51,7 +52,9 @@ public class PluginExecutor {
             executionLog.setNodeCode(request.getContext().getNodeCode());
             executionLog.setPluginId(request.getPlugin().getPluginId());
             executionLog.setPluginName(request.getPlugin().getPluginName());
-            executionLog.setStatus(executionResult.getResult().isSuccess() ? "success" : "failed");
+            executionLog.setStatus(executionResult.getResult().isSuccess()
+                ? DocPluginExecutionStatus.SUCCESS.getCode()
+                : DocPluginExecutionStatus.FAILED.getCode());
             executionLog.setCostMs(executionResult.getCostMs());
             executionLog.setGeneratedFileCount(getGeneratedFileCount(executionResult.getResult()));
             executionLog.setErrorMessage(executionResult.getResult().getErrorMessage());

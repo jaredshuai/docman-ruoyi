@@ -3,8 +3,12 @@ package org.dromara.docman.service;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.plugin.PluginResult;
+
+import java.util.Date;
+import java.util.List;
 
 public interface IDocDocumentRecordService {
 
@@ -17,4 +21,6 @@ public interface IDocDocumentRecordService {
     void recordPluginGenerated(Long projectId, String pluginId, PluginResult.GeneratedFile file);
 
     void markObsoleteByProjectId(Long projectId);
+
+    List<DocDocumentRecord> listPendingCreatedBeforeByProjectIds(List<Long> projectIds, Date cutoffTime);
 }

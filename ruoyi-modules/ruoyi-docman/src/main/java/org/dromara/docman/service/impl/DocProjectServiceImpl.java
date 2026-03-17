@@ -13,6 +13,7 @@ import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.domain.bo.DocProjectBo;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectMember;
+import org.dromara.docman.domain.enums.DocNasDirStatus;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.enums.DocProjectRole;
 import org.dromara.docman.domain.enums.DocProjectStatus;
@@ -25,6 +26,7 @@ import org.dromara.docman.service.IDocProjectService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 
 @Service
@@ -79,7 +81,7 @@ public class DocProjectServiceImpl implements IDocProjectService {
         project.setNasBasePath(basePath);
 
         boolean nasOk = documentStoragePort.ensureDirectory(basePath);
-        project.setNasDirStatus(nasOk ? "created" : "pending");
+        project.setNasDirStatus(nasOk ? DocNasDirStatus.CREATED.getCode() : DocNasDirStatus.PENDING.getCode());
 
         projectMapper.insert(project);
 
@@ -116,13 +118,13 @@ public class DocProjectServiceImpl implements IDocProjectService {
     public int retryPendingNasDirectories() {
         List<DocProject> pending = projectMapper.selectList(
             new LambdaQueryWrapper<DocProject>()
-                .eq(DocProject::getNasDirStatus, "pending")
+                .eq(DocProject::getNasDirStatus, DocNasDirStatus.PENDING.getCode())
         );
         int successCount = 0;
         for (DocProject p : pending) {
             boolean ok = documentStoragePort.ensureDirectory(p.getNasBasePath());
             if (ok) {
-                p.setNasDirStatus("created");
+                p.setNasDirStatus(DocNasDirStatus.CREATED.getCode());
                 projectMapper.updateById(p);
                 successCount++;
             }
@@ -133,6 +135,18 @@ public class DocProjectServiceImpl implements IDocProjectService {
     @Override
     public void assertViewPermission(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
+    }
+
+    @Override
+    public List<DocProject> listByIdsAndStatus(Collection<Long> ids, DocProjectStatus status) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return projectMapper.selectList(
+            new LambdaQueryWrapper<DocProject>()
+                .in(DocProject::getId, ids)
+                .eq(DocProject::getStatus, status.getCode())
+        );
     }
 
     private void addMember(Long projectId, Long userId, String roleType) {

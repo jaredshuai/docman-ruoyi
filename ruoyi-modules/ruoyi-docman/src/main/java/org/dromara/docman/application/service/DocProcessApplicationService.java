@@ -2,7 +2,8 @@ package org.dromara.docman.application.service;
 
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.application.CommandApplicationService;
-import org.dromara.docman.domain.entity.DocProcessConfig;
+import org.dromara.docman.application.assembler.DocProcessAssembler;
+import org.dromara.docman.domain.vo.DocProcessConfigVo;
 import org.dromara.docman.service.IDocProcessService;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 public class DocProcessApplicationService implements CommandApplicationService {
 
     private final IDocProcessService processService;
+    private final DocProcessAssembler processAssembler;
 
     public void bind(Long projectId, Long definitionId) {
         processService.bindProcess(projectId, definitionId);
@@ -20,7 +22,7 @@ public class DocProcessApplicationService implements CommandApplicationService {
         return processService.startProcess(projectId);
     }
 
-    public DocProcessConfig getConfig(Long projectId) {
-        return processService.getByProjectId(projectId);
+    public DocProcessConfigVo getConfig(Long projectId) {
+        return processAssembler.toVo(processService.getByProjectId(projectId));
     }
 }

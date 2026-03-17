@@ -7,7 +7,9 @@ import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.docman.application.port.out.ProcessEnginePort;
 import org.dromara.docman.domain.entity.DocProcessConfig;
+import org.dromara.docman.domain.enums.DocProcessConfigStatus;
 import org.dromara.docman.domain.enums.DocProjectAction;
+import org.dromara.docman.domain.service.DocProcessStateMachine;
 import org.dromara.docman.mapper.DocProcessConfigMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
 import org.dromara.docman.service.IDocProcessService;
@@ -34,7 +36,7 @@ public class DocProcessServiceImpl implements IDocProcessService {
         DocProcessConfig config = new DocProcessConfig();
         config.setProjectId(projectId);
         config.setDefinitionId(definitionId);
-        config.setStatus("pending");
+        config.setStatus(DocProcessConfigStatus.PENDING.getCode());
         configMapper.insert(config);
     }
 
@@ -46,12 +48,14 @@ public class DocProcessServiceImpl implements IDocProcessService {
         if (config == null) {
             throw new ServiceException("该项目未绑定流程");
         }
-        if (!"pending".equals(config.getStatus())) {
+        DocProcessConfigStatus currentStatus = DocProcessConfigStatus.of(config.getStatus());
+        if (!DocProcessStateMachine.INSTANCE.canTransition(currentStatus, DocProcessConfigStatus.RUNNING)) {
             throw new ServiceException("流程已启动，不可重复启动");
         }
+        DocProcessStateMachine.checkTransition(currentStatus, DocProcessConfigStatus.RUNNING);
         Long instanceId = processEnginePort.startProcess(config.getDefinitionId(), String.valueOf(projectId), LoginHelper.getUserId());
         config.setInstanceId(instanceId);
-        config.setStatus("running");
+        config.setStatus(DocProcessConfigStatus.RUNNING.getCode());
         configMapper.updateById(config);
         log.info("项目流程已启动: projectId={}, instanceId={}", projectId, instanceId);
         return instanceId;

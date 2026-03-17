@@ -11,12 +11,14 @@ import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.domain.entity.DocArchivePackage;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProject;
+import org.dromara.docman.domain.enums.DocDocumentSourceType;
 import org.dromara.docman.domain.enums.DocArchiveStatus;
 import org.dromara.docman.domain.enums.DocDocumentStatus;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.enums.DocProjectStatus;
 import org.dromara.docman.domain.service.DocArchiveDomainService;
 import org.dromara.docman.domain.service.DocDocumentStateMachine;
+import org.dromara.docman.domain.service.DocProjectStateMachine;
 import org.dromara.docman.mapper.DocArchivePackageMapper;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
@@ -58,6 +60,7 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
         if (DocProjectStatus.ARCHIVED.getCode().equals(project.getStatus())) {
             throw new ServiceException("项目已归档");
         }
+        DocProjectStateMachine.checkTransition(DocProjectStatus.of(project.getStatus()), DocProjectStatus.ARCHIVED);
 
         List<DocDocumentRecord> records = documentRecordMapper.selectList(
             new LambdaQueryWrapper<DocDocumentRecord>()
@@ -165,7 +168,7 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
         Map<String, String> manifestEntry = new LinkedHashMap<>();
         manifestEntry.put("fileName", manifestFileName);
         manifestEntry.put("nasPath", manifestPath);
-        manifestEntry.put("sourceType", "archive_manifest");
+        manifestEntry.put("sourceType", DocDocumentSourceType.ARCHIVE_MANIFEST.getCode());
         manifestEntry.put("status", DocDocumentStatus.GENERATED.getCode());
         manifestEntry.put("generatedAt", DateUtil.format(new Date(), DatePattern.NORM_DATETIME_PATTERN));
         return manifestEntry;
