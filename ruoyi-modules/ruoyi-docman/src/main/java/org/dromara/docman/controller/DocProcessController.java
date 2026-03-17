@@ -12,6 +12,9 @@ import org.dromara.docman.domain.vo.DocProcessConfigVo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @Validated
 @RequiredArgsConstructor
 @RestController
@@ -40,5 +43,10 @@ public class DocProcessController extends BaseController {
     @GetMapping("/{projectId}")
     public R<DocProcessConfigVo> getConfig(@PathVariable Long projectId) {
         return R.ok(processQueryApplicationService.getConfig(projectId));
+    }
+
+    @GetMapping("/definitions")
+    public R<List<Map<String, Object>>> listDefinitions() {
+        return R.ok(processApplicationService.listDefinitions());
     }
 }
