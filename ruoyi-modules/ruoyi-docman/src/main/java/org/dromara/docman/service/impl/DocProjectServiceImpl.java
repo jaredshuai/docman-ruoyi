@@ -4,17 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
-import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.common.satoken.utils.LoginHelper;
+import org.dromara.docman.application.assembler.DocProjectAssembler;
 import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.domain.bo.DocProjectBo;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectMember;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.enums.DocProjectRole;
+import org.dromara.docman.domain.enums.DocProjectStatus;
 import org.dromara.docman.domain.service.DocPathResolver;
 import org.dromara.docman.domain.vo.DocProjectVo;
 import org.dromara.docman.mapper.DocProjectMapper;
@@ -35,6 +36,7 @@ public class DocProjectServiceImpl implements IDocProjectService {
     private final DocumentStoragePort documentStoragePort;
     private final DocPathResolver docPathResolver;
     private final IDocProjectAccessService projectAccessService;
+    private final DocProjectAssembler projectAssembler;
 
     @Override
     public TableDataInfo<DocProjectVo> queryPageList(DocProjectBo bo, PageQuery pageQuery) {
@@ -70,8 +72,8 @@ public class DocProjectServiceImpl implements IDocProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long insertProject(DocProjectBo bo) {
-        DocProject project = MapstructUtils.convert(bo, DocProject.class);
-        project.setStatus("active");
+        DocProject project = projectAssembler.toEntity(bo);
+        project.setStatus(DocProjectStatus.ACTIVE.getCode());
 
         String basePath = docPathResolver.buildProjectBasePath(project.getCustomerType(), project.getName());
         project.setNasBasePath(basePath);
@@ -95,7 +97,7 @@ public class DocProjectServiceImpl implements IDocProjectService {
     @Override
     public Boolean updateProject(DocProjectBo bo) {
         projectAccessService.assertAction(bo.getId(), DocProjectAction.EDIT_PROJECT);
-        DocProject project = MapstructUtils.convert(bo, DocProject.class);
+        DocProject project = projectAssembler.toEntity(bo);
         return projectMapper.updateById(project) > 0;
     }
 

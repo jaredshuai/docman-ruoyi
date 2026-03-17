@@ -14,6 +14,7 @@ import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.enums.DocArchiveStatus;
 import org.dromara.docman.domain.enums.DocDocumentStatus;
 import org.dromara.docman.domain.enums.DocProjectAction;
+import org.dromara.docman.domain.enums.DocProjectStatus;
 import org.dromara.docman.domain.service.DocArchiveDomainService;
 import org.dromara.docman.domain.service.DocDocumentStateMachine;
 import org.dromara.docman.mapper.DocArchivePackageMapper;
@@ -54,7 +55,7 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
         if (project == null) {
             throw new ServiceException("项目不存在");
         }
-        if ("archived".equals(project.getStatus())) {
+        if (DocProjectStatus.ARCHIVED.getCode().equals(project.getStatus())) {
             throw new ServiceException("项目已归档");
         }
 
@@ -95,7 +96,7 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
             documentRecordMapper.updateById(record);
         }
 
-        project.setStatus("archived");
+        project.setStatus(DocProjectStatus.ARCHIVED.getCode());
         projectMapper.updateById(project);
 
         log.info("项目归档完成: {} ({}份文档)", project.getName(), records.size());

@@ -4,13 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.exception.ServiceException;
-import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.docman.application.assembler.DocDocumentAssembler;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
-import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.enums.DocDocumentStatus;
+import org.dromara.docman.domain.enums.DocProjectAction;
+import org.dromara.docman.domain.service.DocDocumentStateMachine;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
@@ -25,6 +26,7 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
 
     private final DocDocumentRecordMapper baseMapper;
     private final IDocProjectAccessService projectAccessService;
+    private final DocDocumentAssembler documentAssembler;
 
     @Override
     public TableDataInfo<DocDocumentRecordVo> queryPageList(Long projectId, PageQuery pageQuery) {
@@ -49,7 +51,7 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     @Override
     public void recordUpload(DocDocumentRecordBo bo) {
         projectAccessService.assertAction(bo.getProjectId(), DocProjectAction.UPLOAD_DOCUMENT);
-        DocDocumentRecord record = MapstructUtils.convert(bo, DocDocumentRecord.class);
+        DocDocumentRecord record = documentAssembler.toEntity(bo);
         record.setSourceType("upload");
         record.setStatus(DocDocumentStatus.GENERATED.getCode());
         record.setGeneratedAt(new Date());
@@ -63,6 +65,7 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
                 .eq(DocDocumentRecord::getProjectId, projectId)
                 .in(DocDocumentRecord::getStatus, DocDocumentStatus.PENDING.getCode(), DocDocumentStatus.RUNNING.getCode(), DocDocumentStatus.GENERATED.getCode(), DocDocumentStatus.FAILED.getCode()))
             .forEach(record -> {
+                DocDocumentStateMachine.checkTransition(DocDocumentStatus.of(record.getStatus()), DocDocumentStatus.OBSOLETE);
                 record.setStatus(DocDocumentStatus.OBSOLETE.getCode());
                 baseMapper.updateById(record);
             });
