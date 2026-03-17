@@ -14,6 +14,7 @@ import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.service.DocDocumentStateMachine;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
+import org.dromara.docman.plugin.PluginResult;
 import org.dromara.docman.service.IDocProjectAccessService;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,20 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
         projectAccessService.assertAction(bo.getProjectId(), DocProjectAction.UPLOAD_DOCUMENT);
         DocDocumentRecord record = documentAssembler.toEntity(bo);
         record.setSourceType("upload");
+        record.setStatus(DocDocumentStatus.GENERATED.getCode());
+        record.setGeneratedAt(new Date());
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void recordPluginGenerated(Long projectId, String pluginId, PluginResult.GeneratedFile file) {
+        DocDocumentRecord record = new DocDocumentRecord();
+        record.setProjectId(projectId);
+        record.setPluginId(pluginId);
+        record.setSourceType("plugin");
+        record.setFileName(file.getFileName());
+        record.setNasPath(file.getNasPath());
+        record.setOssId(file.getOssId());
         record.setStatus(DocDocumentStatus.GENERATED.getCode());
         record.setGeneratedAt(new Date());
         baseMapper.insert(record);
