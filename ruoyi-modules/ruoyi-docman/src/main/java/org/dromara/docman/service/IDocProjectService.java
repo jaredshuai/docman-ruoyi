@@ -19,7 +19,7 @@ public interface IDocProjectService {
 
     Boolean deleteByIds(List<Long> ids);
 
-    void retryPendingNasDirectories();
+    int retryPendingNasDirectories();
 
     void assertViewPermission(Long projectId);
 }

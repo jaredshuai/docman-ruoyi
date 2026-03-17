@@ -111,18 +111,21 @@ public class DocProjectServiceImpl implements IDocProjectService {
     }
 
     @Override
-    public void retryPendingNasDirectories() {
+    public int retryPendingNasDirectories() {
         List<DocProject> pending = projectMapper.selectList(
             new LambdaQueryWrapper<DocProject>()
                 .eq(DocProject::getNasDirStatus, "pending")
         );
+        int successCount = 0;
         for (DocProject p : pending) {
             boolean ok = documentStoragePort.ensureDirectory(p.getNasBasePath());
             if (ok) {
                 p.setNasDirStatus("created");
                 projectMapper.updateById(p);
+                successCount++;
             }
         }
+        return successCount;
     }
 
     @Override
