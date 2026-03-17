@@ -1,6 +1,5 @@
 package org.dromara.docman.application.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.domain.event.WorkflowNodeFinishedEvent;
@@ -10,9 +9,6 @@ import org.dromara.docman.domain.entity.DocNodeContext;
 import org.dromara.docman.domain.entity.DocProcessConfig;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.enums.DocDocumentStatus;
-import org.dromara.docman.mapper.DocDocumentRecordMapper;
-import org.dromara.docman.mapper.DocProcessConfigMapper;
-import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.plugin.DocumentPlugin;
 import org.dromara.docman.plugin.PluginContext;
 import org.dromara.docman.plugin.PluginRegistry;
@@ -20,6 +16,9 @@ import org.dromara.docman.plugin.PluginResult;
 import org.dromara.docman.plugin.runtime.PluginExecutionRequest;
 import org.dromara.docman.plugin.runtime.PluginExecutor;
 import org.dromara.docman.plugin.runtime.PluginExecutionResult;
+import org.dromara.docman.service.IDocDocumentRecordService;
+import org.dromara.docman.service.IDocProcessService;
+import org.dromara.docman.service.IDocProjectService;
 import org.dromara.docman.service.INodeContextService;
 import org.springframework.stereotype.Service;
 
@@ -35,14 +34,14 @@ public class DocWorkflowNodeApplicationService {
     private final PluginRegistry pluginRegistry;
     private final PluginExecutor pluginExecutor;
     private final INodeContextService contextService;
-    private final DocProcessConfigMapper processConfigMapper;
-    private final DocProjectMapper projectMapper;
-    private final DocDocumentRecordMapper documentRecordMapper;
+    private final IDocProcessService processService;
+    private final IDocProjectService projectService;
+    private final IDocDocumentRecordService documentRecordService;
 
     /**
      * 处理工作流节点完成事件。
-     * <p>现在使用框架层结构化解析后的 {@link WorkflowNodeFinishedEvent.NodeExtPayload}，
-     * 不再自行解析 JSON。
+     * <p>使用框架层结构化解析后的 {@link WorkflowNodeFinishedEvent.NodeExtPayload}，
+     * 不再自行解析 JSON。通过 Service 层访问数据，不直接注入 Mapper。
      */
     public void handleNodeFinished(WorkflowNodeFinishedEvent event) {
         WorkflowNodeFinishedEvent.NodeExtPayload parsedExt = event.getParsedExt();
@@ -51,16 +50,13 @@ public class DocWorkflowNodeApplicationService {
             return;
         }
 
-        DocProcessConfig config = processConfigMapper.selectOne(
-            new LambdaQueryWrapper<DocProcessConfig>()
-                .eq(DocProcessConfig::getInstanceId, event.getInstanceId())
-        );
+        DocProcessConfig config = processService.getByInstanceId(event.getInstanceId());
         if (config == null) {
             log.warn("未找到流程实例对应的项目配置: instanceId={}", event.getInstanceId());
             return;
         }
 
-        DocProject project = projectMapper.selectById(config.getProjectId());
+        DocProject project = projectService.getProjectEntity(config.getProjectId());
         if (project == null) {
             log.warn("未找到项目: projectId={}", config.getProjectId());
             return;
@@ -115,7 +111,7 @@ public class DocWorkflowNodeApplicationService {
                     record.setOssId(file.getOssId());
                     record.setStatus(DocDocumentStatus.GENERATED.getCode());
                     record.setGeneratedAt(new Date());
-                    documentRecordMapper.insert(record);
+                    documentRecordService.recordPluginGenerated(record);
                 }
             }
             log.info("插件执行成功: {}, cost={}ms", pluginId, executionResult.getCostMs());

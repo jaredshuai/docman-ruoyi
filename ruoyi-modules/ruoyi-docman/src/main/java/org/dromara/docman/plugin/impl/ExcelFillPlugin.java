@@ -56,7 +56,7 @@ public class ExcelFillPlugin implements DocumentPlugin {
                 return PluginResult.fail("缺少必要配置: templatePath 或 fieldMapping");
             }
 
-            InputStream templateStream = getClass().getClassLoader().getResourceAsStream(templatePath);
+            InputStream templateStream = documentStoragePort.download(templatePath);
             if (templateStream == null) {
                 return PluginResult.fail("模板文件不存在: " + templatePath);
             }

@@ -130,6 +130,11 @@ public class DocProjectServiceImpl implements IDocProjectService {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
     }
 
+    @Override
+    public DocProject getProjectEntity(Long projectId) {
+        return projectMapper.selectById(projectId);
+    }
+
     private void addMember(Long projectId, Long userId, String roleType) {
         DocProjectMember member = new DocProjectMember();
         member.setProjectId(projectId);
