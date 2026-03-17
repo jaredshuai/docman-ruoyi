@@ -19,8 +19,7 @@ import java.util.Map;
 @Component
 public class DocArchiveDomainService {
 
-    public DocArchivePackage createArchivePackage(DocProject project, List<DocDocumentRecord> records, long nextVersion) {
-        List<Map<String, String>> snapshotManifest = buildSnapshotManifest(records);
+    public DocArchivePackage createArchivePackage(DocProject project, List<Map<String, String>> snapshotManifest, long nextVersion) {
         Date now = new Date();
 
         DocArchivePackage archive = new DocArchivePackage();
@@ -44,7 +43,9 @@ public class DocArchiveDomainService {
             entry.put("nasPath", record.getNasPath());
             entry.put("sourceType", record.getSourceType());
             entry.put("status", record.getStatus());
-            entry.put("generatedAt", record.getGeneratedAt() != null ? record.getGeneratedAt().toString() : "");
+            entry.put("generatedAt", record.getGeneratedAt() != null
+                ? DateUtil.format(record.getGeneratedAt(), DatePattern.NORM_DATETIME_PATTERN)
+                : "");
             manifest.add(entry);
         }
         return manifest;

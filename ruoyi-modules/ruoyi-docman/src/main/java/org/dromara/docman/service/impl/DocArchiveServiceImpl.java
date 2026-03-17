@@ -1,9 +1,13 @@
 package org.dromara.docman.service.impl;
 
+import cn.hutool.core.date.DatePattern;
+import cn.hutool.core.date.DateUtil;
+import cn.idev.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.domain.entity.DocArchivePackage;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProject;
@@ -20,7 +24,12 @@ import org.dromara.docman.service.IDocProjectAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -32,6 +41,10 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
     private final DocProjectMapper projectMapper;
     private final IDocProjectAccessService projectAccessService;
     private final DocArchiveDomainService archiveDomainService;
+    private final DocumentStoragePort documentStoragePort;
+
+    private static final String MANIFEST_FILE_PREFIX = "归档清单_V";
+    private static final String MANIFEST_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -62,13 +75,17 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
         }
 
         long nextVersion = countByProjectId(projectId) + 1;
+        List<Map<String, String>> manifest = archiveDomainService.buildSnapshotManifest(records);
+        String manifestFileName = MANIFEST_FILE_PREFIX + nextVersion + ".xlsx";
+        String manifestPath = project.getNasBasePath() + "/" + manifestFileName;
 
-        // TODO: 生成归档清单 Excel 并上传到 NAS
-        // byte[] manifestExcel = generateManifestExcel(manifest);
-        // String manifestPath = project.getNasBasePath() + "/归档清单.xlsx";
-        // nasService.uploadFile(manifestPath, manifestExcel, "归档清单.xlsx");
+        byte[] manifestExcel = generateManifestExcel(manifest);
+        documentStoragePort.store(manifestPath, manifestExcel, manifestFileName, MANIFEST_CONTENT_TYPE);
 
-        DocArchivePackage archive = archiveDomainService.createArchivePackage(project, records, nextVersion);
+        List<Map<String, String>> archiveManifest = new ArrayList<>(manifest);
+        archiveManifest.add(buildManifestFileEntry(manifestFileName, manifestPath));
+
+        DocArchivePackage archive = archiveDomainService.createArchivePackage(project, archiveManifest, nextVersion);
         archiveMapper.insert(archive);
 
         for (DocDocumentRecord record : records) {
@@ -114,5 +131,47 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
                     DocArchiveStatus.COMPLETED.getCode(),
                     DocArchiveStatus.FAILED.getCode())
         );
+    }
+
+    private byte[] generateManifestExcel(List<Map<String, String>> manifest) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            List<List<String>> head = List.of(
+                List.of("文件名"),
+                List.of("路径"),
+                List.of("来源"),
+                List.of("生成时间")
+            );
+            List<List<String>> rows = manifest.stream()
+                .map(item -> List.of(
+                    getManifestValue(item, "fileName"),
+                    getManifestValue(item, "nasPath"),
+                    getManifestValue(item, "sourceType"),
+                    getManifestValue(item, "generatedAt")
+                ))
+                .toList();
+            EasyExcel.write(outputStream)
+                .head(head)
+                .autoCloseStream(false)
+                .sheet("归档清单")
+                .doWrite(rows);
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            throw new ServiceException("生成归档清单 Excel 失败", e);
+        }
+    }
+
+    private Map<String, String> buildManifestFileEntry(String manifestFileName, String manifestPath) {
+        Map<String, String> manifestEntry = new LinkedHashMap<>();
+        manifestEntry.put("fileName", manifestFileName);
+        manifestEntry.put("nasPath", manifestPath);
+        manifestEntry.put("sourceType", "archive_manifest");
+        manifestEntry.put("status", DocDocumentStatus.GENERATED.getCode());
+        manifestEntry.put("generatedAt", DateUtil.format(new Date(), DatePattern.NORM_DATETIME_PATTERN));
+        return manifestEntry;
+    }
+
+    private String getManifestValue(Map<String, String> item, String key) {
+        String value = item.get(key);
+        return value == null ? "" : value;
     }
 }
