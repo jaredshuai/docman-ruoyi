@@ -7,6 +7,8 @@ public interface DocumentStoragePort {
 
     boolean ensureDirectory(String path);
 
+    byte[] load(String path);
+
     StoredDocument store(String path, byte[] content, String fileName, String contentType);
 
     record StoredDocument(String path, String fileName, Long storageRecordId) {

@@ -27,6 +27,16 @@ public class OssDocumentStorageAdapter implements DocumentStoragePort {
     }
 
     @Override
+    public byte[] load(String path) {
+        try (var inputStream = OssFactory.instance().getObjectContent(normalize(path))) {
+            return inputStream.readAllBytes();
+        } catch (Exception e) {
+            log.error("读取存储文件失败: {}", path, e);
+            throw new IllegalStateException("读取存储文件失败: " + path, e);
+        }
+    }
+
+    @Override
     public StoredDocument store(String path, byte[] content, String fileName, String contentType) {
         try {
             OssClient client = OssFactory.instance();
