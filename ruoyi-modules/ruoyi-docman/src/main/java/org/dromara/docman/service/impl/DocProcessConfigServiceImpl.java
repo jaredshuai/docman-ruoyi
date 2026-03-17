@@ -1,6 +1,7 @@
 package org.dromara.docman.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import org.dromara.docman.domain.entity.DocProcessConfig;
 import org.dromara.docman.domain.enums.DocProcessConfigStatus;
@@ -30,6 +31,16 @@ public class DocProcessConfigServiceImpl implements IDocProcessConfigService {
             new LambdaQueryWrapper<DocProcessConfig>()
                 .eq(DocProcessConfig::getStatus, status.getCode())
                 .select(DocProcessConfig::getProjectId)
+        );
+    }
+
+    @Override
+    public void updateStatus(Long id, String status) {
+        processConfigMapper.update(
+            null,
+            new LambdaUpdateWrapper<DocProcessConfig>()
+                .set(DocProcessConfig::getStatus, status)
+                .eq(DocProcessConfig::getId, id)
         );
     }
 }

@@ -57,9 +57,6 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
         if (project == null) {
             throw new ServiceException("项目不存在");
         }
-        if (DocProjectStatus.ARCHIVED.getCode().equals(project.getStatus())) {
-            throw new ServiceException("项目已归档");
-        }
         DocProjectStateMachine.checkTransition(DocProjectStatus.of(project.getStatus()), DocProjectStatus.ARCHIVED);
 
         List<DocDocumentRecord> records = documentRecordMapper.selectList(

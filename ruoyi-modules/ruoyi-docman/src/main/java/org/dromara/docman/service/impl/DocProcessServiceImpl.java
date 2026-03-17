@@ -49,9 +49,6 @@ public class DocProcessServiceImpl implements IDocProcessService {
             throw new ServiceException("该项目未绑定流程");
         }
         DocProcessConfigStatus currentStatus = DocProcessConfigStatus.of(config.getStatus());
-        if (!DocProcessStateMachine.INSTANCE.canTransition(currentStatus, DocProcessConfigStatus.RUNNING)) {
-            throw new ServiceException("流程已启动，不可重复启动");
-        }
         DocProcessStateMachine.checkTransition(currentStatus, DocProcessConfigStatus.RUNNING);
         Long instanceId = processEnginePort.startProcess(config.getDefinitionId(), String.valueOf(projectId), LoginHelper.getUserId());
         config.setInstanceId(instanceId);

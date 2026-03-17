@@ -10,4 +10,6 @@ public interface IDocProcessConfigService {
     DocProcessConfig queryByInstanceId(Long instanceId);
 
     List<DocProcessConfig> listByStatus(DocProcessConfigStatus status);
+
+    void updateStatus(Long id, String status);
 }
