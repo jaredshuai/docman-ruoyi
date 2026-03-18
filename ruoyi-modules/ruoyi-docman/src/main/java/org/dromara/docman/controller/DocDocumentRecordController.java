@@ -88,11 +88,13 @@ public class DocDocumentRecordController extends BaseController {
             : file.getContentType();
 
         byte[] content = readBytes(file);
+        Long ossId = null;
         try {
             documentStoragePort.ensureDirectory(uploadsDir);
             DocumentStoragePort.StoredDocument stored = documentStoragePort.store(nasPath, content, fileName, contentType);
             fileName = stored.fileName();
             nasPath = stored.path();
+            ossId = stored.storageRecordId();
         } catch (Exception e) {
             // OSS/S3 未集成或不可用时，落地到本地路径（NAS-like）。
             writeLocal(nasPath, content);
@@ -103,7 +105,7 @@ public class DocDocumentRecordController extends BaseController {
         bo.setSourceType(DocDocumentSourceType.UPLOAD.getCode());
         bo.setFileName(fileName);
         bo.setNasPath(nasPath);
-        bo.setOssId(null);
+        bo.setOssId(ossId);
         documentApplicationService.upload(bo);
         return R.ok();
     }
