@@ -179,8 +179,8 @@ INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms
 VALUES (3031, '执行归档', 3030, 1, 'F', 'docman:archive:execute', 1, NOW());
 
 -- 插件管理
-INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
-VALUES (3040, '插件列表', 3000, 5, 'F', 'docman:plugin:list', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, menu_type, perms, icon, create_by, create_time)
+VALUES (3040, '插件列表', 3000, 5, 'plugin', 'docman/plugin/index', 'C', 'docman:plugin:list', 'component', 1, NOW());
 
 -- 文档下载、删除权限
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
@@ -281,3 +281,8 @@ INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_val
 VALUES (85, '000000', 1, '成功', 'success', 'doc_plugin_execution_status', '', 'success', 'Y', 103, 1, sysdate(), NULL, NULL, '成功');
 INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
 VALUES (86, '000000', 2, '失败', 'failed', 'doc_plugin_execution_status', '', 'danger', 'N', 103, 1, sysdate(), NULL, NULL, '失败');
+
+-- 插件执行日志权限
+insert into sys_menu values('3041', '日志查询', '3040', '1', '#', '', '', 1, 0, 'F', '0', '0', 'docman:plugin:list', '#', 103, 1, sysdate(), null, null, '');
+-- 插件手动触发权限
+insert into sys_menu values('3044', '手动触发', '3040', '2', '#', '', '', 1, 0, 'F', '0', '0', 'docman:plugin:trigger', '#', 103, 1, sysdate(), null, null, '');
