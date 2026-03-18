@@ -1,8 +1,13 @@
 package org.dromara.docman.application.service;
 
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.enums.BusinessStatusEnum;
+import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.domain.event.WorkflowNodeFinishedEvent;
 import org.dromara.docman.context.NodeContextReader;
 import org.dromara.docman.domain.entity.DocNodeContext;
@@ -21,8 +26,11 @@ import org.dromara.docman.service.IDocDocumentRecordService;
 import org.dromara.docman.service.IDocProcessConfigService;
 import org.dromara.docman.service.IDocProjectService;
 import org.dromara.docman.service.INodeContextService;
+import org.dromara.warm.flow.core.FlowEngine;
+import org.dromara.warm.flow.core.entity.Node;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -84,27 +92,59 @@ public class DocWorkflowNodeApplicationService {
                             .archiveFolderName(archiveFolderName)
                             .build();
 
-                        PluginExecutionResult executionResult = pluginExecutor.execute(
-                            PluginExecutionRequest.builder().plugin(plugin).context(ctx).build()
-                        );
-                        PluginResult result = executionResult.getResult();
-                        if (!result.isSuccess()) {
-                            log.error("插件执行失败: {} - {}, cost={}ms", pluginId, result.getErrorMessage(), executionResult.getCostMs());
-                            continue;
-                        }
-
-                        if (result.getGeneratedFiles() != null) {
-                            for (PluginResult.GeneratedFile file : result.getGeneratedFiles()) {
-                                documentRecordService.recordPluginGenerated(project.getId(), pluginId, file);
-                            }
-                        }
-                        log.info("插件执行成功: {}, cost={}ms", pluginId, executionResult.getCostMs());
+                        executePlugin(project.getId(), plugin, ctx);
                     }
                 }
             }
         }
 
         handleWorkflowCompleted(event);
+    }
+
+    public void triggerPlugins(DocProcessConfig config, String nodeCode) {
+        DocProjectVo project = projectService.queryById(config.getProjectId());
+        if (project == null) {
+            throw new ServiceException("项目不存在: " + config.getProjectId());
+        }
+
+        List<Node> nodes = resolveTriggerNodes(config.getDefinitionId(), nodeCode);
+        if (nodes.isEmpty()) {
+            throw new ServiceException("未找到可触发的流程节点");
+        }
+
+        for (Node node : nodes) {
+            WorkflowNodeFinishedEvent.NodeExtPayload parsedExt = parseNodeExt(node.getExt());
+            if (parsedExt.getPlugins().isEmpty()) {
+                continue;
+            }
+
+            DocNodeContext nodeContext = contextService.getOrCreate(config.getInstanceId(), node.getNodeCode(), project.getId());
+            NodeContextReader reader = contextService.buildReader(config.getInstanceId());
+            for (WorkflowNodeFinishedEvent.PluginBinding binding : parsedExt.getPlugins()) {
+                DocumentPlugin plugin = pluginRegistry.getPlugin(binding.getPluginId());
+                if (plugin == null) {
+                    log.error("插件未注册: {}", binding.getPluginId());
+                    continue;
+                }
+
+                PluginContext ctx = PluginContext.builder()
+                    .projectId(project.getId())
+                    .projectName(project.getName())
+                    .processInstanceId(config.getInstanceId())
+                    .nodeCode(node.getNodeCode())
+                    .contextReader(reader)
+                    .processWriter((field, value) -> contextService.putProcessVariable(nodeContext.getId(), field, value))
+                    .nodeWriter((field, value) -> contextService.putNodeVariable(nodeContext.getId(), field, value))
+                    .factWriter((field, value) -> contextService.putDocumentFact(nodeContext.getId(), field, value))
+                    .contentWriter((key, text) -> contextService.putUnstructuredContent(nodeContext.getId(), key, text))
+                    .pluginConfig(binding.getConfig())
+                    .nasBasePath(project.getNasBasePath())
+                    .archiveFolderName(parsedExt.getArchiveFolderName())
+                    .build();
+
+                executePlugin(project.getId(), plugin, ctx);
+            }
+        }
     }
 
     private void handleWorkflowCompleted(WorkflowNodeFinishedEvent event) {
@@ -119,5 +159,70 @@ public class DocWorkflowNodeApplicationService {
         DocProcessStateMachine.checkTransition(currentStatus, DocProcessConfigStatus.COMPLETED);
         processConfigService.updateStatus(config.getId(), DocProcessConfigStatus.COMPLETED.getCode());
         log.info("文档流程配置已完成: configId={}, instanceId={}", config.getId(), event.getInstanceId());
+    }
+
+    private void executePlugin(Long projectId, DocumentPlugin plugin, PluginContext ctx) {
+        PluginExecutionResult executionResult = pluginExecutor.execute(
+            PluginExecutionRequest.builder().plugin(plugin).context(ctx).build()
+        );
+        PluginResult result = executionResult.getResult();
+        if (!result.isSuccess()) {
+            log.error("插件执行失败: {} - {}, cost={}ms", plugin.getPluginId(), result.getErrorMessage(), executionResult.getCostMs());
+            return;
+        }
+
+        if (result.getGeneratedFiles() != null) {
+            for (PluginResult.GeneratedFile file : result.getGeneratedFiles()) {
+                documentRecordService.recordPluginGenerated(projectId, plugin.getPluginId(), file);
+            }
+        }
+        log.info("插件执行成功: {}, cost={}ms", plugin.getPluginId(), executionResult.getCostMs());
+    }
+
+    private List<Node> resolveTriggerNodes(Long definitionId, String nodeCode) {
+        if (StrUtil.isNotBlank(nodeCode)) {
+            Node node = FlowEngine.nodeService().getByDefIdAndNodeCode(definitionId, nodeCode);
+            if (node == null) {
+                throw new ServiceException("节点不存在: " + nodeCode);
+            }
+            return List.of(node);
+        }
+        return FlowEngine.nodeService().getByDefId(definitionId);
+    }
+
+    private WorkflowNodeFinishedEvent.NodeExtPayload parseNodeExt(String nodeExt) {
+        if (StrUtil.isBlank(nodeExt)) {
+            return WorkflowNodeFinishedEvent.NodeExtPayload.EMPTY;
+        }
+        try {
+            JSONObject extJson = JSONUtil.parseObj(nodeExt);
+            WorkflowNodeFinishedEvent.NodeExtPayload payload = new WorkflowNodeFinishedEvent.NodeExtPayload();
+            payload.setArchiveFolderName(extJson.getStr("archiveFolderName", ""));
+            payload.setPlugins(parsePlugins(extJson.getJSONArray("plugins")));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> extra = (Map<String, Object>) extJson.get("extra");
+            payload.setExtra(extra);
+            return payload;
+        } catch (Exception e) {
+            log.warn("[DocWorkflowNodeApplicationService] 解析节点ext失败: {}", e.getMessage());
+            return WorkflowNodeFinishedEvent.NodeExtPayload.EMPTY;
+        }
+    }
+
+    private List<WorkflowNodeFinishedEvent.PluginBinding> parsePlugins(JSONArray pluginsArray) {
+        if (pluginsArray == null || pluginsArray.isEmpty()) {
+            return List.of();
+        }
+        List<WorkflowNodeFinishedEvent.PluginBinding> bindings = new ArrayList<>(pluginsArray.size());
+        for (int index = 0; index < pluginsArray.size(); index++) {
+            JSONObject pluginJson = pluginsArray.getJSONObject(index);
+            WorkflowNodeFinishedEvent.PluginBinding binding = new WorkflowNodeFinishedEvent.PluginBinding();
+            binding.setPluginId(pluginJson.getStr("pluginId"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> config = (Map<String, Object>) pluginJson.get("config");
+            binding.setConfig(config);
+            bindings.add(binding);
+        }
+        return bindings;
     }
 }

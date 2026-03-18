@@ -6,16 +6,21 @@ import org.dromara.common.core.domain.R;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.common.web.core.BaseController;
+import org.dromara.docman.domain.bo.DocPluginTriggerBo;
 import org.dromara.docman.domain.vo.DocPluginExecutionLogVo;
 import org.dromara.docman.application.service.DocPluginApplicationService;
 import org.dromara.docman.domain.vo.DocPluginInfoVo;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Validated
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/docman/plugin")
@@ -40,5 +45,12 @@ public class DocPluginController extends BaseController {
                                                                     @RequestParam(required = false) String pluginId,
                                                                     PageQuery pageQuery) {
         return pluginApplicationService.listExecutionLogs(projectId, processInstanceId, nodeCode, pluginId, pageQuery);
+    }
+
+    @SaCheckPermission("docman:plugin:trigger")
+    @PostMapping("/execution/trigger")
+    public R<Void> triggerExecution(@Validated @RequestBody DocPluginTriggerBo bo) {
+        pluginApplicationService.triggerPlugin(bo);
+        return R.ok();
     }
 }
