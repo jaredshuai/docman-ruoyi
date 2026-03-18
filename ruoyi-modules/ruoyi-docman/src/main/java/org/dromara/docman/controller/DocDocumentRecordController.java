@@ -1,6 +1,7 @@
 package org.dromara.docman.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.domain.R;
@@ -53,6 +54,12 @@ public class DocDocumentRecordController extends BaseController {
         return R.ok(documentQueryApplicationService.getById(id));
     }
 
+    @SaCheckPermission("docman:document:download")
+    @GetMapping("/{id}/download")
+    public void download(@PathVariable Long id, HttpServletResponse response) {
+        documentApplicationService.download(id, response);
+    }
+
     @SaCheckPermission("docman:document:upload")
     @Log(title = "文档上传", businessType = BusinessType.INSERT)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -98,6 +105,14 @@ public class DocDocumentRecordController extends BaseController {
         bo.setNasPath(nasPath);
         bo.setOssId(null);
         documentApplicationService.upload(bo);
+        return R.ok();
+    }
+
+    @SaCheckPermission("docman:document:delete")
+    @Log(title = "文档删除", businessType = BusinessType.DELETE)
+    @DeleteMapping("/{id}")
+    public R<Void> delete(@PathVariable Long id) {
+        documentApplicationService.delete(id);
         return R.ok();
     }
 

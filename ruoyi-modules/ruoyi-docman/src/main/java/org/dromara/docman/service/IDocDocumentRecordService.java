@@ -16,9 +16,13 @@ public interface IDocDocumentRecordService {
 
     DocDocumentRecordVo queryById(Long id);
 
+    DocDocumentRecord queryEntityById(Long id);
+
     void recordUpload(DocDocumentRecordBo bo);
 
     void recordPluginGenerated(Long projectId, String pluginId, PluginResult.GeneratedFile file);
+
+    void markObsoleteById(Long id);
 
     void markObsoleteByProjectId(Long projectId);
 

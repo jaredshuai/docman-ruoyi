@@ -43,12 +43,16 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
 
     @Override
     public DocDocumentRecordVo queryById(Long id) {
-        DocDocumentRecord record = baseMapper.selectById(id);
-        if (record == null) {
-            throw new ServiceException("文档记录不存在");
-        }
+        DocDocumentRecord record = getRecordOrThrow(id);
         projectAccessService.assertAction(record.getProjectId(), DocProjectAction.VIEW_DOCUMENT);
         return baseMapper.selectVoById(id);
+    }
+
+    @Override
+    public DocDocumentRecord queryEntityById(Long id) {
+        DocDocumentRecord record = getRecordOrThrow(id);
+        projectAccessService.assertAction(record.getProjectId(), DocProjectAction.VIEW_DOCUMENT);
+        return record;
     }
 
     @Override
@@ -76,16 +80,19 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     }
 
     @Override
+    public void markObsoleteById(Long id) {
+        DocDocumentRecord record = getRecordOrThrow(id);
+        projectAccessService.assertAction(record.getProjectId(), DocProjectAction.EDIT_PROJECT);
+        markObsolete(record);
+    }
+
+    @Override
     public void markObsoleteByProjectId(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         baseMapper.selectList(new LambdaQueryWrapper<DocDocumentRecord>()
                 .eq(DocDocumentRecord::getProjectId, projectId)
                 .in(DocDocumentRecord::getStatus, DocDocumentStatus.PENDING.getCode(), DocDocumentStatus.RUNNING.getCode(), DocDocumentStatus.GENERATED.getCode(), DocDocumentStatus.FAILED.getCode()))
-            .forEach(record -> {
-                DocDocumentStateMachine.checkTransition(DocDocumentStatus.of(record.getStatus()), DocDocumentStatus.OBSOLETE);
-                record.setStatus(DocDocumentStatus.OBSOLETE.getCode());
-                baseMapper.updateById(record);
-            });
+            .forEach(this::markObsolete);
     }
 
     @Override
@@ -100,5 +107,19 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
                 .le(DocDocumentRecord::getCreateTime, cutoffTime)
                 .select(DocDocumentRecord::getProjectId)
         );
+    }
+
+    private DocDocumentRecord getRecordOrThrow(Long id) {
+        DocDocumentRecord record = baseMapper.selectById(id);
+        if (record == null) {
+            throw new ServiceException("文档记录不存在");
+        }
+        return record;
+    }
+
+    private void markObsolete(DocDocumentRecord record) {
+        DocDocumentStateMachine.checkTransition(DocDocumentStatus.of(record.getStatus()), DocDocumentStatus.OBSOLETE);
+        record.setStatus(DocDocumentStatus.OBSOLETE.getCode());
+        baseMapper.updateById(record);
     }
 }

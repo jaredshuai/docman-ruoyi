@@ -1,19 +1,32 @@
 package org.dromara.docman.application.service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.application.CommandApplicationService;
+import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.utils.file.FileUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service
 @RequiredArgsConstructor
 public class DocDocumentApplicationService implements CommandApplicationService {
 
     private final IDocDocumentRecordService documentRecordService;
+    private final DocumentStoragePort documentStoragePort;
 
     public TableDataInfo<DocDocumentRecordVo> list(Long projectId, PageQuery pageQuery) {
         return documentRecordService.queryPageList(projectId, pageQuery);
@@ -27,7 +40,76 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         documentRecordService.recordUpload(bo);
     }
 
+    public void download(Long id, HttpServletResponse response) {
+        DocDocumentRecord record = documentRecordService.queryEntityById(id);
+        byte[] content = loadDocumentContent(record);
+        FileUtils.setAttachmentResponseHeader(response, resolveFileName(record));
+        response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE + "; charset=UTF-8");
+        response.setContentLengthLong(content.length);
+        try {
+            response.getOutputStream().write(content);
+            response.getOutputStream().flush();
+        } catch (IOException e) {
+            throw new ServiceException("写出下载文件失败");
+        }
+    }
+
+    public void delete(Long id) {
+        documentRecordService.markObsoleteById(id);
+    }
+
     public void markObsolete(Long projectId) {
         documentRecordService.markObsoleteByProjectId(projectId);
+    }
+
+    private byte[] loadDocumentContent(DocDocumentRecord record) {
+        String nasPath = record.getNasPath();
+        if (nasPath == null || nasPath.isBlank()) {
+            throw new ServiceException("文档存储路径为空");
+        }
+        try {
+            return documentStoragePort.load(nasPath);
+        } catch (Exception ignored) {
+            Path localPath = resolveLocalPath(nasPath);
+            try {
+                return Files.readAllBytes(localPath);
+            } catch (IOException e) {
+                throw new ServiceException("读取文档文件失败: " + localPath);
+            }
+        }
+    }
+
+    private Path resolveLocalPath(String nasPath) {
+        Path directPath = Paths.get(nasPath);
+        if (directPath.isAbsolute() && Files.exists(directPath)) {
+            return directPath;
+        }
+        String relative = nasPath.startsWith("/") ? nasPath.substring(1) : nasPath;
+        if (relative.isBlank()) {
+            throw new ServiceException("文档存储路径为空");
+        }
+        String localRootProp = System.getProperty(
+            "docman.upload.localRoot",
+            System.getProperty("java.io.tmpdir") + File.separator + "docman-upload"
+        );
+        Path localPath = Paths.get(localRootProp).resolve(relative.replace("/", File.separator));
+        if (!Files.exists(localPath)) {
+            throw new ServiceException("文档文件不存在: " + localPath);
+        }
+        return localPath;
+    }
+
+    private String resolveFileName(DocDocumentRecord record) {
+        String fileName = record.getFileName();
+        if (fileName != null && !fileName.isBlank()) {
+            return fileName;
+        }
+        String nasPath = record.getNasPath();
+        if (nasPath == null || nasPath.isBlank()) {
+            return "document.bin";
+        }
+        int separatorIndex = Math.max(nasPath.lastIndexOf('/'), nasPath.lastIndexOf('\\'));
+        String resolved = separatorIndex >= 0 ? nasPath.substring(separatorIndex + 1) : nasPath;
+        return resolved.isBlank() ? "document.bin" : resolved;
     }
 }

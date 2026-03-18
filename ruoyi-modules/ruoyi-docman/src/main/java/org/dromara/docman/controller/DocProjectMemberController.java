@@ -1,0 +1,48 @@
+package org.dromara.docman.controller;
+
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import lombok.RequiredArgsConstructor;
+import org.dromara.common.core.domain.R;
+import org.dromara.common.log.annotation.Log;
+import org.dromara.common.log.enums.BusinessType;
+import org.dromara.common.web.core.BaseController;
+import org.dromara.docman.application.service.DocProjectMemberApplicationService;
+import org.dromara.docman.application.service.DocProjectMemberQueryApplicationService;
+import org.dromara.docman.domain.bo.DocProjectMemberBo;
+import org.dromara.docman.domain.vo.DocProjectMemberVo;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Validated
+@RequiredArgsConstructor
+@RestController
+@RequestMapping("/docman/project/{projectId}/member")
+public class DocProjectMemberController extends BaseController {
+
+    private final DocProjectMemberApplicationService projectMemberApplicationService;
+    private final DocProjectMemberQueryApplicationService projectMemberQueryApplicationService;
+
+    @SaCheckPermission("docman:project:query")
+    @GetMapping
+    public R<List<DocProjectMemberVo>> list(@PathVariable Long projectId) {
+        return R.ok(projectMemberQueryApplicationService.list(projectId));
+    }
+
+    @SaCheckPermission("docman:project:edit")
+    @Log(title = "项目成员", businessType = BusinessType.INSERT)
+    @PostMapping
+    public R<Void> add(@PathVariable Long projectId, @Validated @RequestBody DocProjectMemberBo bo) {
+        projectMemberApplicationService.add(projectId, bo);
+        return R.ok();
+    }
+
+    @SaCheckPermission("docman:project:edit")
+    @Log(title = "项目成员", businessType = BusinessType.DELETE)
+    @DeleteMapping("/{userId}")
+    public R<Void> remove(@PathVariable Long projectId, @PathVariable Long userId) {
+        projectMemberApplicationService.remove(projectId, userId);
+        return R.ok();
+    }
+}

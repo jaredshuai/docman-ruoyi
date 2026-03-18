@@ -181,3 +181,9 @@ VALUES (3031, '执行归档', 3030, 1, 'F', 'docman:archive:execute', 1, NOW());
 -- 插件管理
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
 VALUES (3040, '插件列表', 3000, 5, 'F', 'docman:plugin:list', 1, NOW());
+
+-- 文档下载、删除权限
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3012, '文档下载', 3010, 2, 'F', 'docman:document:download', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3013, '文档删除', 3010, 3, 'F', 'docman:document:delete', 1, NOW());
