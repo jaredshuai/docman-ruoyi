@@ -104,6 +104,15 @@ public class DocArchiveServiceImpl implements IDocArchiveService {
     }
 
     @Override
+    public DocArchivePackage getById(Long archiveId) {
+        DocArchivePackage archive = archiveMapper.selectById(archiveId);
+        if (archive != null) {
+            projectAccessService.assertAction(archive.getProjectId(), DocProjectAction.VIEW_ARCHIVE);
+        }
+        return archive;
+    }
+
+    @Override
     public DocArchivePackage getByProjectId(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_ARCHIVE);
         return listByProjectId(projectId).stream()

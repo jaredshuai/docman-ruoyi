@@ -8,6 +8,8 @@ public interface IDocArchiveService {
 
     DocArchivePackage archiveProject(Long projectId);
 
+    DocArchivePackage getById(Long archiveId);
+
     DocArchivePackage getByProjectId(Long projectId);
 
     List<DocArchivePackage> listByProjectId(Long projectId);

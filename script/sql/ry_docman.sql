@@ -286,3 +286,6 @@ VALUES (86, '000000', 2, '失败', 'failed', 'doc_plugin_execution_status', '', 
 insert into sys_menu values('3041', '日志查询', '3040', '1', '#', '', '', 1, 0, 'F', '0', '0', 'docman:plugin:list', '#', 103, 1, sysdate(), null, null, '');
 -- 插件手动触发权限
 insert into sys_menu values('3044', '手动触发', '3040', '2', '#', '', '', 1, 0, 'F', '0', '0', 'docman:plugin:trigger', '#', 103, 1, sysdate(), null, null, '');
+
+-- 归档下载权限
+insert into sys_menu values('3034', '归档下载', '3030', '3', '#', '', '', 1, 0, 'F', '0', '0', 'docman:archive:download', '#', 103, 1, sysdate(), null, null, '');

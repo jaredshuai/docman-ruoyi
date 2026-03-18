@@ -1,6 +1,7 @@
 package org.dromara.docman.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
 import org.dromara.common.log.annotation.Log;
@@ -38,5 +39,11 @@ public class DocArchiveController extends BaseController {
     @GetMapping("/history/{projectId}")
     public R<List<DocArchivePackageVo>> getArchiveHistory(@PathVariable Long projectId) {
         return R.ok(archiveApplicationService.listHistory(projectId));
+    }
+
+    @SaCheckPermission("docman:archive:download")
+    @GetMapping("/{archiveId}/download")
+    public void download(@PathVariable Long archiveId, HttpServletResponse response) {
+        archiveApplicationService.downloadArchive(archiveId, response);
     }
 }
