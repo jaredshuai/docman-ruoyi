@@ -1,7 +1,10 @@
 package org.dromara.docman.domain.vo;
 
+import com.alibaba.excel.annotation.ExcelProperty;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import org.dromara.common.excel.annotation.ExcelDictFormat;
+import org.dromara.common.excel.convert.ExcelDictConvert;
 import org.dromara.common.translation.annotation.Translation;
 import org.dromara.common.translation.constant.TransConstant;
 import org.dromara.docman.domain.entity.DocProject;
@@ -23,9 +26,18 @@ public class DocProjectVo implements Serializable {
 
     private Long id;
     private String name;
+
+    @ExcelProperty(value = "客户类型", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "doc_customer_type")
     private String customerType;
+
+    @ExcelProperty(value = "业务类型", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "doc_business_type")
     private String businessType;
     private String documentCategory;
+
+    @ExcelProperty(value = "项目状态", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "doc_project_status")
     private String status;
     private Long ownerId;
 

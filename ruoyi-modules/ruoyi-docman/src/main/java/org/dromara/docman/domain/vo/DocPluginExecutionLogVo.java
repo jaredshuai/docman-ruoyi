@@ -1,7 +1,10 @@
 package org.dromara.docman.domain.vo;
 
+import com.alibaba.excel.annotation.ExcelProperty;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import org.dromara.common.excel.annotation.ExcelDictFormat;
+import org.dromara.common.excel.convert.ExcelDictConvert;
 import org.dromara.docman.domain.entity.DocPluginExecutionLog;
 
 import java.io.Serial;
@@ -21,6 +24,9 @@ public class DocPluginExecutionLogVo implements Serializable {
     private String nodeCode;
     private String pluginId;
     private String pluginName;
+
+    @ExcelProperty(value = "执行状态", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "doc_plugin_execution_status")
     private String status;
     private Long costMs;
     private Integer generatedFileCount;

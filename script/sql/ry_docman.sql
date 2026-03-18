@@ -187,3 +187,97 @@ INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms
 VALUES (3012, '文档下载', 3010, 2, 'F', 'docman:document:download', 1, NOW());
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
 VALUES (3013, '文档删除', 3010, 3, 'F', 'docman:document:delete', 1, NOW());
+
+-- ==========================================
+-- 字典类型与字典数据
+-- ==========================================
+
+-- 项目状态
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (16, '000000', '项目状态', 'doc_project_status', 103, 1, sysdate(), NULL, NULL, '项目状态列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (60, '000000', 1, '进行中', 'active', 'doc_project_status', '', 'primary', 'Y', 103, 1, sysdate(), NULL, NULL, '进行中');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (61, '000000', 2, '已归档', 'archived', 'doc_project_status', '', 'info', 'N', 103, 1, sysdate(), NULL, NULL, '已归档');
+
+-- 客户类型
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (17, '000000', '客户类型', 'doc_customer_type', 103, 1, sysdate(), NULL, NULL, '客户类型列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (62, '000000', 1, '电信客户', 'telecom', 'doc_customer_type', '', 'primary', 'Y', 103, 1, sysdate(), NULL, NULL, '电信客户');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (63, '000000', 2, '社会客户', 'social', 'doc_customer_type', '', 'success', 'N', 103, 1, sysdate(), NULL, NULL, '社会客户');
+
+-- 业务类型
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (18, '000000', '业务类型', 'doc_business_type', 103, 1, sysdate(), NULL, NULL, '业务类型列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (64, '000000', 1, '管线', 'pipeline', 'doc_business_type', '', 'primary', 'Y', 103, 1, sysdate(), NULL, NULL, '管线');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (65, '000000', 2, '弱电', 'weak_current', 'doc_business_type', '', 'warning', 'N', 103, 1, sysdate(), NULL, NULL, '弱电');
+
+-- 文档状态
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (19, '000000', '文档状态', 'doc_document_status', 103, 1, sysdate(), NULL, NULL, '文档状态列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (66, '000000', 1, '待生成', 'pending', 'doc_document_status', '', 'info', 'Y', 103, 1, sysdate(), NULL, NULL, '待生成');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (67, '000000', 2, '生成中', 'running', 'doc_document_status', '', 'warning', 'N', 103, 1, sysdate(), NULL, NULL, '生成中');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (68, '000000', 3, '已生成', 'generated', 'doc_document_status', '', 'success', 'N', 103, 1, sysdate(), NULL, NULL, '已生成');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (69, '000000', 4, '生成失败', 'failed', 'doc_document_status', '', 'danger', 'N', 103, 1, sysdate(), NULL, NULL, '生成失败');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (70, '000000', 5, '已归档', 'archived', 'doc_document_status', '', 'primary', 'N', 103, 1, sysdate(), NULL, NULL, '已归档');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (71, '000000', 6, '已失效', 'obsolete', 'doc_document_status', '', 'default', 'N', 103, 1, sysdate(), NULL, NULL, '已失效');
+
+-- 文档来源
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (20, '000000', '文档来源', 'doc_source_type', 103, 1, sysdate(), NULL, NULL, '文档来源列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (72, '000000', 1, '插件自动生成', 'plugin', 'doc_source_type', '', 'primary', 'Y', 103, 1, sysdate(), NULL, NULL, '插件自动生成');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (73, '000000', 2, '手动上传', 'upload', 'doc_source_type', '', 'success', 'N', 103, 1, sysdate(), NULL, NULL, '手动上传');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (74, '000000', 3, '归档清单', 'archive_manifest', 'doc_source_type', '', 'info', 'N', 103, 1, sysdate(), NULL, NULL, '归档清单');
+
+-- 归档状态
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (21, '000000', '归档状态', 'doc_archive_status', 103, 1, sysdate(), NULL, NULL, '归档状态列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (75, '000000', 1, '已申请', 'requested', 'doc_archive_status', '', 'info', 'Y', 103, 1, sysdate(), NULL, NULL, '已申请');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (76, '000000', 2, '归档中', 'generating', 'doc_archive_status', '', 'warning', 'N', 103, 1, sysdate(), NULL, NULL, '归档中');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (77, '000000', 3, '已完成', 'completed', 'doc_archive_status', '', 'success', 'N', 103, 1, sysdate(), NULL, NULL, '已完成');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (78, '000000', 4, '归档失败', 'failed', 'doc_archive_status', '', 'danger', 'N', 103, 1, sysdate(), NULL, NULL, '归档失败');
+
+-- 流程状态
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (22, '000000', '流程状态', 'doc_process_status', 103, 1, sysdate(), NULL, NULL, '流程状态列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (79, '000000', 1, '待启动', 'pending', 'doc_process_status', '', 'info', 'Y', 103, 1, sysdate(), NULL, NULL, '待启动');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (80, '000000', 2, '运行中', 'running', 'doc_process_status', '', 'warning', 'N', 103, 1, sysdate(), NULL, NULL, '运行中');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (81, '000000', 3, '已完成', 'completed', 'doc_process_status', '', 'success', 'N', 103, 1, sysdate(), NULL, NULL, '已完成');
+
+-- 项目成员角色
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (23, '000000', '项目成员角色', 'doc_member_role', 103, 1, sysdate(), NULL, NULL, '项目成员角色列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (82, '000000', 1, '项目负责人', 'owner', 'doc_member_role', '', 'danger', 'Y', 103, 1, sysdate(), NULL, NULL, '项目负责人');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (83, '000000', 2, '项目编辑', 'editor', 'doc_member_role', '', 'warning', 'N', 103, 1, sysdate(), NULL, NULL, '项目编辑');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (84, '000000', 3, '项目只读', 'viewer', 'doc_member_role', '', 'info', 'N', 103, 1, sysdate(), NULL, NULL, '项目只读');
+
+-- 插件执行状态
+INSERT INTO sys_dict_type (dict_id, tenant_id, dict_name, dict_type, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (24, '000000', '插件执行状态', 'doc_plugin_execution_status', 103, 1, sysdate(), NULL, NULL, '插件执行状态列表');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (85, '000000', 1, '成功', 'success', 'doc_plugin_execution_status', '', 'success', 'Y', 103, 1, sysdate(), NULL, NULL, '成功');
+INSERT INTO sys_dict_data (dict_code, tenant_id, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, create_dept, create_by, create_time, update_by, update_time, remark)
+VALUES (86, '000000', 2, '失败', 'failed', 'doc_plugin_execution_status', '', 'danger', 'N', 103, 1, sysdate(), NULL, NULL, '失败');

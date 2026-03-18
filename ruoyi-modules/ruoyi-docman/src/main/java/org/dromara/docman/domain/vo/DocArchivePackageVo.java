@@ -1,7 +1,10 @@
 package org.dromara.docman.domain.vo;
 
+import com.alibaba.excel.annotation.ExcelProperty;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
+import org.dromara.common.excel.annotation.ExcelDictFormat;
+import org.dromara.common.excel.convert.ExcelDictConvert;
 import org.dromara.docman.domain.entity.DocArchivePackage;
 
 import java.io.Serial;
@@ -26,6 +29,9 @@ public class DocArchivePackageVo implements Serializable {
     private String snapshotChecksum;
     private Date requestedAt;
     private Date completedAt;
+
+    @ExcelProperty(value = "归档状态", converter = ExcelDictConvert.class)
+    @ExcelDictFormat(dictType = "doc_archive_status")
     private String status;
     private Date createTime;
     private Date updateTime;
