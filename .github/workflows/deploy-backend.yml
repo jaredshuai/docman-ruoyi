@@ -32,6 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "MYSQL_DB_NAME=app_db" >> "$GITHUB_ENV"
           if [[ "${GITHUB_REF_NAME}" == "release" ]]; then
             echo "DEPLOY_ENV=release" >> "$GITHUB_ENV"
             echo "COMPOSE_PROJECT=docman-release" >> "$GITHUB_ENV"
@@ -87,7 +88,7 @@ jobs:
                 TZ: Asia/Shanghai
                 SPRING_PROFILES_ACTIVE: prod
                 MONITOR_ADMIN_ENABLED: "false"
-                SNAILJOB_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/ry-vue?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+                SNAILJOB_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/${MYSQL_DB_NAME}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
                 SNAILJOB_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
                 SNAILJOB_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
               ports:
@@ -108,7 +109,7 @@ jobs:
                 CAPTCHA_ENABLE: "false"
                 API_DECRYPT_ENABLED: "false"
                 MONITOR_ADMIN_ENABLED: "false"
-                DOCMAN_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+                DOCMAN_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/${MYSQL_DB_NAME}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
                 DOCMAN_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
                 DOCMAN_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
                 DOCMAN_REDIS_HOST: ${{ secrets.DOCMAN_REDIS_HOST }}
