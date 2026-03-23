@@ -112,8 +112,7 @@ jobs:
                 DOCMAN_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/${MYSQL_DB_NAME}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
                 DOCMAN_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
                 DOCMAN_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
-                DOCMAN_REDIS_HOST: ${{ secrets.DOCMAN_REDIS_HOST }}
-                DOCMAN_REDIS_PORT: "${{ secrets.DOCMAN_REDIS_PORT }}"
+                DOCMAN_REDIS_CLUSTER_NODES: "10.34.200.151:6379,10.34.200.152:6379,10.34.200.153:6379"
                 DOCMAN_REDIS_PASSWORD: ${{ secrets.DOCMAN_REDIS_PASSWORD }}
                 DOCMAN_STORAGE_LOCAL_ONLY: "true"
                 DOCMAN_UPLOAD_LOCAL_ROOT: /ruoyi/server/storage
