@@ -34,11 +34,13 @@ jobs:
           set -euo pipefail
           if [[ "${GITHUB_REF_NAME}" == "release" ]]; then
             echo "DEPLOY_ENV=release" >> "$GITHUB_ENV"
+            echo "COMPOSE_PROJECT=docman-release" >> "$GITHUB_ENV"
             echo "ADMIN_HOST_PORT=18081" >> "$GITHUB_ENV"
             echo "SNAIL_UI_HOST_PORT=18800" >> "$GITHUB_ENV"
             echo "MYSQL_HOST=${{ secrets.DOCMAN_MYSQL_HOST_RELEASE }}" >> "$GITHUB_ENV"
           else
             echo "DEPLOY_ENV=dev" >> "$GITHUB_ENV"
+            echo "COMPOSE_PROJECT=docman-dev" >> "$GITHUB_ENV"
             echo "ADMIN_HOST_PORT=28081" >> "$GITHUB_ENV"
             echo "SNAIL_UI_HOST_PORT=28800" >> "$GITHUB_ENV"
             echo "MYSQL_HOST=${{ secrets.DOCMAN_MYSQL_HOST_DEV }}" >> "$GITHUB_ENV"
@@ -129,7 +131,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker compose -p "docman-${DEPLOY_ENV}" -f "/srv/docman/${DEPLOY_ENV}/backend/docker-compose.yml" up -d
+          docker compose -p "${COMPOSE_PROJECT}" -f "/srv/docman/${DEPLOY_ENV}/backend/docker-compose.yml" up -d
 
       - name: Show running containers
         shell: bash
