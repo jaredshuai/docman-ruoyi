@@ -71,9 +71,10 @@ jobs:
         run: |
           set -euo pipefail
           BASE_DIR="/srv/docman/${DEPLOY_ENV}"
-          mkdir -p "${BASE_DIR}/backend" "${BASE_DIR}/storage" "${BASE_DIR}/logs/admin" "${BASE_DIR}/logs/snailjob"
+          sudo mkdir -p "${BASE_DIR}/backend" "${BASE_DIR}/storage" "${BASE_DIR}/logs/admin" "${BASE_DIR}/logs/snailjob"
+          sudo chown -R ubuntu:ubuntu "${BASE_DIR}"
 
-          cat > "${BASE_DIR}/backend/docker-compose.yml" <<EOF
+          sudo tee "${BASE_DIR}/backend/docker-compose.yml" >/dev/null <<EOF
           services:
             snailjob:
               image: docman-snailjob:${DEPLOY_ENV}
