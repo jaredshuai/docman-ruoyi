@@ -75,6 +75,7 @@ jobs:
           sudo chown -R ubuntu:ubuntu "${BASE_DIR}"
 
           sudo tee "${BASE_DIR}/backend/docker-compose.yml" >/dev/null <<EOF
+          name: docman-${DEPLOY_ENV}
           services:
             snailjob:
               image: docman-snailjob:${DEPLOY_ENV}
@@ -128,7 +129,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker compose -f "/srv/docman/${DEPLOY_ENV}/backend/docker-compose.yml" up -d
+          docker compose -p "docman-${DEPLOY_ENV}" -f "/srv/docman/${DEPLOY_ENV}/backend/docker-compose.yml" up -d
 
       - name: Show running containers
         shell: bash
