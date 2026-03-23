@@ -1,0 +1,126 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - dev
+      - release
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - backend
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Resolve environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_NAME}" == "release" ]]; then
+            echo "DEPLOY_ENV=release" >> "$GITHUB_ENV"
+            echo "ADMIN_HOST_PORT=18081" >> "$GITHUB_ENV"
+            echo "SNAIL_UI_HOST_PORT=18800" >> "$GITHUB_ENV"
+            echo "MYSQL_HOST=${{ secrets.DOCMAN_MYSQL_HOST_RELEASE }}" >> "$GITHUB_ENV"
+          else
+            echo "DEPLOY_ENV=dev" >> "$GITHUB_ENV"
+            echo "ADMIN_HOST_PORT=28081" >> "$GITHUB_ENV"
+            echo "SNAIL_UI_HOST_PORT=28800" >> "$GITHUB_ENV"
+            echo "MYSQL_HOST=${{ secrets.DOCMAN_MYSQL_HOST_DEV }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build backend artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mvn -B -pl ruoyi-admin,ruoyi-extend/ruoyi-snailjob-server -am -Pprod -DskipTests package
+
+      - name: Build runtime images
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t "docman-admin:${DEPLOY_ENV}" -f ruoyi-admin/Dockerfile ruoyi-admin
+          docker build -t "docman-snailjob:${DEPLOY_ENV}" -f ruoyi-extend/ruoyi-snailjob-server/Dockerfile ruoyi-extend/ruoyi-snailjob-server
+
+      - name: Write compose file
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_DIR="/srv/docman/${DEPLOY_ENV}"
+          mkdir -p "${BASE_DIR}/backend" "${BASE_DIR}/storage" "${BASE_DIR}/logs/admin" "${BASE_DIR}/logs/snailjob"
+
+          cat > "${BASE_DIR}/backend/docker-compose.yml" <<EOF
+          services:
+            snailjob:
+              image: docman-snailjob:${DEPLOY_ENV}
+              container_name: docman-snailjob-${DEPLOY_ENV}
+              restart: unless-stopped
+              environment:
+                TZ: Asia/Shanghai
+                SPRING_PROFILES_ACTIVE: prod
+                MONITOR_ADMIN_ENABLED: "false"
+                SNAILJOB_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/ry-vue?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+                SNAILJOB_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
+                SNAILJOB_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
+              ports:
+                - "${SNAIL_UI_HOST_PORT}:8800"
+              volumes:
+                - ${BASE_DIR}/logs/snailjob:/ruoyi/snailjob/logs
+
+            admin:
+              image: docman-admin:${DEPLOY_ENV}
+              container_name: docman-admin-${DEPLOY_ENV}
+              restart: unless-stopped
+              depends_on:
+                - snailjob
+              environment:
+                TZ: Asia/Shanghai
+                SPRING_PROFILES_ACTIVE: prod
+                SERVER_PORT: "8080"
+                CAPTCHA_ENABLE: "false"
+                API_DECRYPT_ENABLED: "false"
+                MONITOR_ADMIN_ENABLED: "false"
+                DOCMAN_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/ry-vue?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+                DOCMAN_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
+                DOCMAN_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
+                DOCMAN_REDIS_HOST: ${{ secrets.DOCMAN_REDIS_HOST }}
+                DOCMAN_REDIS_PORT: "${{ secrets.DOCMAN_REDIS_PORT }}"
+                DOCMAN_REDIS_PASSWORD: ${{ secrets.DOCMAN_REDIS_PASSWORD }}
+                DOCMAN_STORAGE_LOCAL_ONLY: "true"
+                DOCMAN_UPLOAD_LOCAL_ROOT: /ruoyi/server/storage
+                SNAIL_JOB_TOKEN: ${{ secrets.DOCMAN_SNAIL_JOB_TOKEN }}
+                SNAIL_JOB_SERVER_HOST: snailjob
+                SNAIL_JOB_SERVER_PORT: "17888"
+                JAVA_OPTS: -Ddocman.upload.localRoot=/ruoyi/server/storage -Ddocman.storage.localOnly=true
+              ports:
+                - "${ADMIN_HOST_PORT}:8080"
+              volumes:
+                - ${BASE_DIR}/logs/admin:/ruoyi/server/logs
+                - ${BASE_DIR}/storage:/ruoyi/server/storage
+          EOF
+
+      - name: Deploy compose stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f "/srv/docman/${DEPLOY_ENV}/backend/docker-compose.yml" up -d
+
+      - name: Show running containers
+        shell: bash
+        run: |
+          docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}" | grep "docman-.*-${DEPLOY_ENV}" || true
