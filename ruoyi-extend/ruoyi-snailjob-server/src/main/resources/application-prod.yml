@@ -2,7 +2,7 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${SNAILJOB_DB_URL:jdbc:mysql://mysql:3306/ry-vue?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    url: ${SNAILJOB_DB_URL:jdbc:mysql://mysql:3306/app_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${SNAILJOB_DB_USERNAME:docman}
     password: ${SNAILJOB_DB_PASSWORD:DocmanDb_20260320}
     hikari:
