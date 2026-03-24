@@ -5,6 +5,7 @@ import org.dromara.docman.domain.vo.DocDashboardOverviewVo;
 import org.dromara.docman.domain.vo.DocDeadlineAlertVo;
 import org.dromara.docman.domain.vo.DocPluginStatsVo;
 import org.dromara.docman.domain.vo.DocProjectProgressVo;
+import org.dromara.docman.domain.vo.DocTodoSummaryVo;
 import org.dromara.docman.service.IDocDashboardService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -79,5 +80,18 @@ class DocDashboardControllerTest {
 
         assertEquals(R.SUCCESS, result.getCode());
         assertEquals("AI生成插件", result.getData().get(0).getPluginName());
+    }
+
+    @Test
+    void shouldReturnTodoSummaryFromService() {
+        DocDashboardController controller = new DocDashboardController(dashboardService);
+        DocTodoSummaryVo summary = new DocTodoSummaryVo();
+        summary.setWaitingTaskCount(6L);
+        when(dashboardService.getTodoSummary()).thenReturn(summary);
+
+        R<DocTodoSummaryVo> result = controller.todoSummary();
+
+        assertEquals(R.SUCCESS, result.getCode());
+        assertEquals(6L, result.getData().getWaitingTaskCount());
     }
 }

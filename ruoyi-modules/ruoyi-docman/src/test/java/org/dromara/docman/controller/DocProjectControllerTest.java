@@ -60,6 +60,21 @@ class DocProjectControllerTest {
     }
 
     @Test
+    void shouldWrapMyProjectListWithOkResponse() {
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectBo bo = new DocProjectBo();
+        DocProjectVo project = new DocProjectVo();
+        project.setId(8L);
+        when(projectQueryApplicationService.listMy(bo)).thenReturn(List.of(project));
+
+        R<List<DocProjectVo>> result = controller.my(bo);
+
+        assertEquals(R.SUCCESS, result.getCode());
+        assertEquals(1, result.getData().size());
+        assertEquals(8L, result.getData().get(0).getId());
+    }
+
+    @Test
     void shouldCreateProjectAndReturnId() {
         DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
         DocProjectBo bo = new DocProjectBo();

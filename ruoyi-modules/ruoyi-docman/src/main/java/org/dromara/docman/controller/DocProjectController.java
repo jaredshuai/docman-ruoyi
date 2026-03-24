@@ -32,6 +32,12 @@ public class DocProjectController extends BaseController {
         return projectQueryApplicationService.list(bo, pageQuery);
     }
 
+    @SaCheckPermission("docman:project:my")
+    @GetMapping("/my")
+    public R<List<DocProjectVo>> my(DocProjectBo bo) {
+        return R.ok(projectQueryApplicationService.listMy(bo));
+    }
+
     @SaCheckPermission("docman:project:query")
     @GetMapping("/{id}")
     public R<DocProjectVo> getInfo(@PathVariable Long id) {

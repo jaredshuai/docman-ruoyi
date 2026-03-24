@@ -8,12 +8,14 @@ import org.dromara.docman.domain.vo.DocDashboardOverviewVo;
 import org.dromara.docman.domain.vo.DocDeadlineAlertVo;
 import org.dromara.docman.domain.vo.DocPluginStatsVo;
 import org.dromara.docman.domain.vo.DocProjectProgressVo;
+import org.dromara.docman.domain.vo.DocTodoSummaryVo;
 import org.dromara.docman.mapper.DocDashboardMapper;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocNodeDeadlineMapper;
 import org.dromara.docman.mapper.DocPluginExecutionLogMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
+import org.dromara.workflow.service.IFlwTaskService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,9 @@ class DocDashboardServiceImplTest {
 
     @Mock
     private IDocProjectAccessService projectAccessService;
+
+    @Mock
+    private IFlwTaskService flwTaskService;
 
     @InjectMocks
     private DocDashboardServiceImpl service;
@@ -155,5 +160,27 @@ class DocDashboardServiceImplTest {
         assertEquals("演示项目", service.listDeadlineAlerts().get(0).getProjectName());
         assertEquals(1, service.listPluginStats().size());
         assertEquals("AI生成插件", service.listPluginStats().get(0).getPluginName());
+    }
+
+    @Test
+    void shouldAggregateTodoSummaryFromProjectsAndWorkflow() {
+        when(projectAccessService.listAccessibleProjectIds(null)).thenReturn(List.of(1L, 2L));
+        DocProject project = new DocProject();
+        project.setId(1L);
+        when(projectMapper.selectList(any())).thenReturn(List.of(project));
+        when(projectMapper.selectCount(any())).thenReturn(1L);
+        when(nodeDeadlineMapper.selectCount(any())).thenReturn(2L);
+        when(flwTaskService.pageByTaskWait(any(), any())).thenReturn(new org.dromara.common.mybatis.core.page.TableDataInfo<>(List.of(), 5L));
+        when(flwTaskService.pageByTaskCopy(any(), any())).thenReturn(new org.dromara.common.mybatis.core.page.TableDataInfo<>(List.of(), 3L));
+        when(flwTaskService.pageByTaskFinish(any(), any())).thenReturn(new org.dromara.common.mybatis.core.page.TableDataInfo<>(List.of(), 4L));
+
+        DocTodoSummaryVo summary = service.getTodoSummary();
+
+        assertEquals(1L, summary.getMyProjectCount());
+        assertEquals(1L, summary.getActiveProjectCount());
+        assertEquals(2L, summary.getOverdueNodeCount());
+        assertEquals(5L, summary.getWaitingTaskCount());
+        assertEquals(3L, summary.getCopiedTaskCount());
+        assertEquals(4L, summary.getFinishedTaskCount());
     }
 }

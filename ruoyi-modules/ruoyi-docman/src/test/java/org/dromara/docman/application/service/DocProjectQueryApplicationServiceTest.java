@@ -53,4 +53,16 @@ class DocProjectQueryApplicationServiceTest {
         assertSame(expectedVo, result);
         verify(projectService).queryById(id);
     }
+
+    @Test
+    void shouldDelegateMyListToProjectService() {
+        DocProjectBo bo = new DocProjectBo();
+        java.util.List<DocProjectVo> expectedResult = java.util.List.of(new DocProjectVo());
+        when(projectService.queryMyList(bo)).thenReturn(expectedResult);
+
+        java.util.List<DocProjectVo> result = queryService.listMy(bo);
+
+        assertSame(expectedResult, result);
+        verify(projectService).queryMyList(bo);
+    }
 }

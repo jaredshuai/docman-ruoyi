@@ -14,6 +14,8 @@ public interface IDocProjectService {
 
     TableDataInfo<DocProjectVo> queryPageList(DocProjectBo bo, PageQuery pageQuery);
 
+    List<DocProjectVo> queryMyList(DocProjectBo bo);
+
     DocProjectVo queryById(Long id);
 
     Long insertProject(DocProjectBo bo);

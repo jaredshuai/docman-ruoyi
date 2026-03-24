@@ -9,6 +9,8 @@ import org.dromara.docman.domain.vo.DocProjectVo;
 import org.dromara.docman.service.IDocProjectService;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class DocProjectQueryApplicationService implements QueryApplicationService {
@@ -17,6 +19,10 @@ public class DocProjectQueryApplicationService implements QueryApplicationServic
 
     public TableDataInfo<DocProjectVo> list(DocProjectBo bo, PageQuery pageQuery) {
         return projectService.queryPageList(bo, pageQuery);
+    }
+
+    public List<DocProjectVo> listMy(DocProjectBo bo) {
+        return projectService.queryMyList(bo);
     }
 
     public DocProjectVo getById(Long id) {

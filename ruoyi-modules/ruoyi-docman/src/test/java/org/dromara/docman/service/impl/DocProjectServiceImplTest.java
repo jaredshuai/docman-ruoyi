@@ -107,6 +107,25 @@ class DocProjectServiceImplTest {
     }
 
     @Test
+    void shouldReturnMyProjectsWithCurrentUserRole() {
+        try (MockedStatic<LoginHelper> loginHelper = mockStatic(LoginHelper.class)) {
+            loginHelper.when(LoginHelper::isSuperAdmin).thenReturn(false);
+            loginHelper.when(LoginHelper::getUserId).thenReturn(66L);
+            when(memberMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(member(12L, 66L, DocProjectRole.EDITOR)));
+            DocProjectVo project = new DocProjectVo();
+            project.setId(12L);
+            project.setName("我的项目");
+            when(projectMapper.selectVoList(any(LambdaQueryWrapper.class))).thenReturn(List.of(project));
+
+            List<DocProjectVo> result = service.queryMyList(new DocProjectBo());
+
+            assertEquals(1, result.size());
+            assertEquals("我的项目", result.get(0).getName());
+            assertEquals(DocProjectRole.EDITOR.getCode(), result.get(0).getCurrentUserRole());
+        }
+    }
+
+    @Test
     void shouldInsertProjectWithCreatedNasDirectoryAndDeduplicatedMembers() {
         DocProjectBo bo = new DocProjectBo();
         bo.setName("Alpha");

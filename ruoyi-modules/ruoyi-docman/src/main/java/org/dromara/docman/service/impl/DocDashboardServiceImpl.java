@@ -14,6 +14,7 @@ import org.dromara.docman.domain.vo.DocDashboardOverviewVo;
 import org.dromara.docman.domain.vo.DocDeadlineAlertVo;
 import org.dromara.docman.domain.vo.DocPluginStatsVo;
 import org.dromara.docman.domain.vo.DocProjectProgressVo;
+import org.dromara.docman.domain.vo.DocTodoSummaryVo;
 import org.dromara.docman.mapper.DocDashboardMapper;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocNodeDeadlineMapper;
@@ -22,6 +23,8 @@ import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.service.IDocDashboardService;
 import org.dromara.docman.service.IDocProjectAccessService;
 import org.springframework.stereotype.Service;
+import org.dromara.workflow.domain.bo.FlowTaskBo;
+import org.dromara.workflow.service.IFlwTaskService;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -38,6 +41,7 @@ public class DocDashboardServiceImpl implements IDocDashboardService {
     private final DocNodeDeadlineMapper nodeDeadlineMapper;
     private final DocPluginExecutionLogMapper pluginExecutionLogMapper;
     private final IDocProjectAccessService projectAccessService;
+    private final IFlwTaskService flwTaskService;
 
     @Override
     public DocDashboardOverviewVo getOverview() {
@@ -60,6 +64,19 @@ public class DocDashboardServiceImpl implements IDocDashboardService {
         overview.setOverdueNodes(countOverdueNodes(projectIds, LocalDate.now()));
         overview.setPluginFailCount(countPluginFailures(projectIds, Timestamp.valueOf(LocalDateTime.now().minusDays(7))));
         return overview;
+    }
+
+    @Override
+    public DocTodoSummaryVo getTodoSummary() {
+        List<Long> projectIds = listAccessibleProjectIds();
+        DocTodoSummaryVo summary = new DocTodoSummaryVo();
+        summary.setMyProjectCount((long) projectIds.size());
+        summary.setActiveProjectCount(projectIds.isEmpty() ? 0L : countProjects(projectIds, DocProjectStatus.ACTIVE.getCode()));
+        summary.setOverdueNodeCount(projectIds.isEmpty() ? 0L : countOverdueNodes(projectIds, LocalDate.now()));
+        summary.setWaitingTaskCount(countWaitingTasks());
+        summary.setCopiedTaskCount(countCopiedTasks());
+        summary.setFinishedTaskCount(countFinishedTasks());
+        return summary;
     }
 
     @Override
@@ -133,5 +150,17 @@ public class DocDashboardServiceImpl implements IDocDashboardService {
                 .eq(DocPluginExecutionLog::getStatus, DocPluginExecutionStatus.FAILED.getCode())
                 .ge(DocPluginExecutionLog::getCreateTime, createdAfter)
         );
+    }
+
+    private Long countWaitingTasks() {
+        return flwTaskService.pageByTaskWait(new FlowTaskBo(), new org.dromara.common.mybatis.core.page.PageQuery(1, 1)).getTotal();
+    }
+
+    private Long countCopiedTasks() {
+        return flwTaskService.pageByTaskCopy(new FlowTaskBo(), new org.dromara.common.mybatis.core.page.PageQuery(1, 1)).getTotal();
+    }
+
+    private Long countFinishedTasks() {
+        return flwTaskService.pageByTaskFinish(new FlowTaskBo(), new org.dromara.common.mybatis.core.page.PageQuery(1, 1)).getTotal();
     }
 }

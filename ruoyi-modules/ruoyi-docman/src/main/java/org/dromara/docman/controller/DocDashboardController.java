@@ -8,6 +8,7 @@ import org.dromara.docman.domain.vo.DocDashboardOverviewVo;
 import org.dromara.docman.domain.vo.DocDeadlineAlertVo;
 import org.dromara.docman.domain.vo.DocPluginStatsVo;
 import org.dromara.docman.domain.vo.DocProjectProgressVo;
+import org.dromara.docman.domain.vo.DocTodoSummaryVo;
 import org.dromara.docman.service.IDocDashboardService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +29,12 @@ public class DocDashboardController extends BaseController {
     @GetMapping("/overview")
     public R<DocDashboardOverviewVo> overview() {
         return R.ok(dashboardService.getOverview());
+    }
+
+    @SaCheckPermission("docman:dashboard:todo-summary")
+    @GetMapping("/todo-summary")
+    public R<DocTodoSummaryVo> todoSummary() {
+        return R.ok(dashboardService.getTodoSummary());
     }
 
     @SaCheckPermission("docman:project:list")

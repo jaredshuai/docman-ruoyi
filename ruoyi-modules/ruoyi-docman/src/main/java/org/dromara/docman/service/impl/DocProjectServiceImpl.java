@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +55,33 @@ public class DocProjectServiceImpl implements IDocProjectService {
         }
         Page<DocProjectVo> page = projectMapper.selectVoPage(pageQuery.build(), wrapper);
         return TableDataInfo.build(page);
+    }
+
+    @Override
+    public List<DocProjectVo> queryMyList(DocProjectBo bo) {
+        if (LoginHelper.isSuperAdmin()) {
+            List<DocProjectVo> projects = projectMapper.selectVoList(buildQueryWrapper(bo));
+            projects.forEach(project -> project.setCurrentUserRole(DocProjectRole.OWNER.getCode()));
+            return projects;
+        }
+
+        List<DocProjectMember> memberships = memberMapper.selectList(
+            new LambdaQueryWrapper<DocProjectMember>()
+                .eq(DocProjectMember::getUserId, LoginHelper.getUserId())
+                .select(DocProjectMember::getProjectId, DocProjectMember::getRoleType)
+        );
+        if (memberships.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, String> rolesByProjectId = memberships.stream()
+            .collect(Collectors.toMap(DocProjectMember::getProjectId, DocProjectMember::getRoleType, (left, right) -> left));
+
+        LambdaQueryWrapper<DocProject> wrapper = buildQueryWrapper(bo);
+        wrapper.in(DocProject::getId, rolesByProjectId.keySet());
+        List<DocProjectVo> projects = projectMapper.selectVoList(wrapper);
+        projects.forEach(project -> project.setCurrentUserRole(rolesByProjectId.get(project.getId())));
+        return projects;
     }
 
     @Override

@@ -333,6 +333,12 @@ INSERT INTO sys_menu VALUES (3051, '节点截止修改', 3000, 2, '', '', '', 1,
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, menu_type, perms, icon, create_by, create_time)
 VALUES (3052, '仪表盘', 3000, 0, 'dashboard', 'docman/dashboard/index', 'C', 'docman:project:list', 'dashboard', 1, NOW());
 
+-- 普通用户工作台权限
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3053, '我的项目查询', 3001, 5, 'F', 'docman:project:my', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3054, '工作台摘要', 3000, 6, 'F', 'docman:dashboard:todo-summary', 1, NOW());
+
 -- 修复 doc_node_deadline 唯一约束
 SET @idx_exists := (
     SELECT COUNT(1)
