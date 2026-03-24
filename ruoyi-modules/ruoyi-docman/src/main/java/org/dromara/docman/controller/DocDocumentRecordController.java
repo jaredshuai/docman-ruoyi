@@ -3,6 +3,7 @@ package org.dromara.docman.controller;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.domain.R;
 import org.dromara.common.log.annotation.Log;
@@ -29,8 +30,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Validated
 @RequiredArgsConstructor
 @RestController
@@ -68,7 +71,21 @@ public class DocDocumentRecordController extends BaseController {
             throw new ServiceException("上传文件不能为空");
         }
 
-        String fileName = sanitizeFileName(file.getOriginalFilename());
+        long maxSize = 100L * 1024 * 1024;
+        if (file.getSize() > maxSize) {
+            throw new ServiceException("上传文件不能超过 100MB");
+        }
+        String originalFilename = file.getOriginalFilename();
+        String ext = (originalFilename != null && originalFilename.contains("."))
+            ? originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase()
+            : "";
+        Set<String> allowedExt = Set.of(".pdf", ".doc", ".docx", ".xls", ".xlsx",
+            ".ppt", ".pptx", ".txt", ".png", ".jpg", ".jpeg", ".zip", ".rar");
+        if (!allowedExt.contains(ext)) {
+            throw new ServiceException("不支持的文件类型: " + ext);
+        }
+
+        String fileName = sanitizeFileName(originalFilename);
         DocProjectVo project = projectQueryApplicationService.getById(projectId);
         if (project == null) {
             throw new ServiceException("项目不存在");
@@ -90,7 +107,10 @@ public class DocDocumentRecordController extends BaseController {
         byte[] content = readBytes(file);
         Long ossId = null;
         try {
-            documentStoragePort.ensureDirectory(uploadsDir);
+            boolean dirReady = documentStoragePort.ensureDirectory(uploadsDir);
+            if (!dirReady) {
+                log.warn("存储目录创建失败，将使用本地降级存储: {}", uploadsDir);
+            }
             DocumentStoragePort.StoredDocument stored = documentStoragePort.store(nasPath, content, fileName, contentType);
             fileName = stored.fileName();
             nasPath = stored.path();
@@ -142,12 +162,15 @@ public class DocDocumentRecordController extends BaseController {
             "docman.upload.localRoot",
             System.getProperty("java.io.tmpdir") + File.separator + "docman-upload"
         );
-        Path localRoot = Paths.get(localRootProp);
+        Path localRoot = Paths.get(localRootProp).toAbsolutePath().normalize();
         String relative = (nasPath != null && nasPath.startsWith("/")) ? nasPath.substring(1) : nasPath;
         if (relative == null || relative.isBlank()) {
             throw new ServiceException("存储路径为空");
         }
-        Path localPath = localRoot.resolve(relative.replace("/", File.separator));
+        Path localPath = localRoot.resolve(relative.replace("/", File.separator)).normalize();
+        if (!localPath.startsWith(localRoot)) {
+            throw new ServiceException("非法存储路径: " + nasPath);
+        }
         try {
             Path parent = localPath.getParent();
             if (parent != null) {

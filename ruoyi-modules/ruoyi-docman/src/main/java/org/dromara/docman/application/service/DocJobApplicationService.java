@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.application.CommandApplicationService;
 import org.dromara.docman.config.DocmanJobConfig;
 import org.dromara.docman.service.IDocDocumentReminderService;
+import org.dromara.docman.service.IDocNodeDeadlineService;
 import org.dromara.docman.service.IDocProjectService;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ public class DocJobApplicationService implements CommandApplicationService {
 
     private final IDocProjectService projectService;
     private final IDocDocumentReminderService documentReminderService;
+    private final IDocNodeDeadlineService nodeDeadlineService;
     private final DocmanJobConfig jobConfig;
 
     public int retryPendingNasDirectories() {
@@ -21,5 +23,10 @@ public class DocJobApplicationService implements CommandApplicationService {
 
     public int sendPendingDocumentReminders() {
         return documentReminderService.sendPendingReminders(jobConfig.getDocumentReminderPendingDays());
+    }
+
+    public int sendNodeDeadlineReminders() {
+        return nodeDeadlineService.sendApproachingDeadlineReminders(
+            jobConfig.getReminderAdvanceDays(), jobConfig.getMaxReminderCount());
     }
 }

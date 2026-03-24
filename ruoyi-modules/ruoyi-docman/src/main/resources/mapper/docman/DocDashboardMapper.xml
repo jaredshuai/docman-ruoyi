@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.dromara.docman.mapper.DocDashboardMapper">
+
+    <select id="selectProjectProgress" resultType="org.dromara.docman.domain.vo.DocProjectProgressVo">
+        select p.id as projectId,
+               p.name as projectName,
+               ifnull(node_stat.total_nodes, 0) as totalNodes,
+               ifnull(task_stat.completed_nodes, 0) as completedNodes,
+               ifnull(doc_stat.total_documents, 0) as totalDocuments,
+               ifnull(doc_stat.pending_documents, 0) as pendingDocuments,
+               case
+                   when ifnull(node_stat.total_nodes, 0) = 0 then 0
+                   else round(ifnull(task_stat.completed_nodes, 0) * 100.0 / node_stat.total_nodes, 2)
+               end as progressRate
+        from doc_project p
+                 left join doc_process_config pc on pc.project_id = p.id
+                 left join (
+            select definition_id,
+                   count(1) as total_nodes
+            from flow_node
+            where del_flag = '0'
+            group by definition_id
+        ) node_stat on node_stat.definition_id = pc.definition_id
+                 left join (
+            select instance_id,
+                   count(distinct node_code) as completed_nodes
+            from flow_his_task
+            where del_flag = '0'
+              and node_code is not null
+              and node_code != ''
+            group by instance_id
+        ) task_stat on task_stat.instance_id = pc.instance_id
+                 left join (
+            select project_id,
+                   count(1) as total_documents,
+                   sum(case when status = 'pending' then 1 else 0 end) as pending_documents
+            from doc_document_record
+            where del_flag = '0'
+            group by project_id
+        ) doc_stat on doc_stat.project_id = p.id
+        where p.del_flag = '0'
+          and p.id in
+        <foreach collection="projectIds" item="projectId" open="(" separator="," close=")">
+            #{projectId}
+        </foreach>
+        order by p.create_time desc, p.id desc
+    </select>
+
+    <select id="selectDeadlineAlerts" resultType="org.dromara.docman.domain.vo.DocDeadlineAlertVo">
+        select d.project_id as projectId,
+               p.name as projectName,
+               d.node_code as nodeCode,
+               n.node_name as nodeName,
+               d.deadline as deadline,
+               datediff(d.deadline, #{today}) as remainDays,
+               d.reminder_count as reminderCount
+        from doc_node_deadline d
+                 left join doc_project p on p.id = d.project_id and p.del_flag = '0'
+                 left join doc_process_config pc on pc.instance_id = d.process_instance_id
+                 left join flow_node n on n.definition_id = pc.definition_id
+            and n.node_code = d.node_code
+            and n.del_flag = '0'
+        where d.project_id in
+        <foreach collection="projectIds" item="projectId" open="(" separator="," close=")">
+            #{projectId}
+        </foreach>
+          and d.deadline &lt;= #{deadlineBefore}
+        order by d.deadline asc, d.id asc
+        limit 20
+    </select>
+
+    <select id="selectPluginStats" resultType="org.dromara.docman.domain.vo.DocPluginStatsVo">
+        select l.plugin_id as pluginId,
+               coalesce(nullif(max(l.plugin_name), ''), l.plugin_id) as pluginName,
+               count(1) as totalCount,
+               sum(case when l.status = 'success' then 1 else 0 end) as successCount,
+               sum(case when l.status = 'failed' then 1 else 0 end) as failCount,
+               round(avg(ifnull(l.cost_ms, 0)), 2) as avgCostMs
+        from doc_plugin_execution_log l
+        where l.project_id in
+        <foreach collection="projectIds" item="projectId" open="(" separator="," close=")">
+            #{projectId}
+        </foreach>
+          and l.create_time &gt;= #{createdAfter}
+        group by l.plugin_id
+        order by totalCount desc, l.plugin_id asc
+    </select>
+
+</mapper>

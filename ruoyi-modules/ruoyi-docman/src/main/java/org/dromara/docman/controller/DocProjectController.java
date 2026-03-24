@@ -49,6 +49,9 @@ public class DocProjectController extends BaseController {
     @Log(title = "项目管理", businessType = BusinessType.UPDATE)
     @PutMapping
     public R<Void> edit(@Validated @RequestBody DocProjectBo bo) {
+        if (bo.getId() == null) {
+            return R.fail("项目ID不能为空");
+        }
         projectApplicationService.update(bo);
         return R.ok();
     }

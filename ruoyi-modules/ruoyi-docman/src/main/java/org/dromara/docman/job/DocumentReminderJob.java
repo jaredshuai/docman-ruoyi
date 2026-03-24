@@ -17,9 +17,14 @@ public class DocumentReminderJob {
     private final DocJobApplicationService jobApplicationService;
 
     public ExecuteResult jobExecute(JobArgs jobArgs) {
-        log.info("开始执行文档缺失提醒任务");
-        int remindedCount = jobApplicationService.sendPendingDocumentReminders();
-        log.info("文档缺失提醒任务完成，共提醒 {} 个项目", remindedCount);
-        return ExecuteResult.success("提醒 " + remindedCount + " 个项目");
+        try {
+            log.info("开始执行文档缺失提醒任务");
+            int remindedCount = jobApplicationService.sendPendingDocumentReminders();
+            log.info("文档缺失提醒任务完成，共提醒 {} 个项目", remindedCount);
+            return ExecuteResult.success("提醒 " + remindedCount + " 个项目");
+        } catch (Exception e) {
+            log.error("文档缺失提醒任务执行失败", e);
+            return ExecuteResult.failure("执行失败: " + e.getMessage());
+        }
     }
 }

@@ -4,8 +4,6 @@ import io.github.linpeilie.annotations.AutoMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.docman.domain.entity.DocProject;
 
 import java.util.List;
@@ -14,9 +12,8 @@ import java.util.List;
  * 项目业务对象
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = DocProject.class, reverseConvertGenerate = false)
-public class DocProjectBo extends BaseEntity {
+public class DocProjectBo {
 
     private Long id;
 

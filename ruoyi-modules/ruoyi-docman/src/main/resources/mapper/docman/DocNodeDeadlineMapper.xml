@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.dromara.docman.mapper.DocNodeDeadlineMapper">
+
+    <select id="selectDeadlineList" resultType="org.dromara.docman.domain.vo.DocNodeDeadlineVo">
+        select d.id,
+               d.process_instance_id as processInstanceId,
+               d.node_code as nodeCode,
+               d.project_id as projectId,
+               d.duration_days as durationDays,
+               d.deadline,
+               d.reminder_count as reminderCount,
+               d.last_reminded_at as lastRemindedAt,
+               d.create_time as createTime,
+               d.update_time as updateTime,
+               p.name as projectName,
+               n.node_name as nodeName
+        from doc_node_deadline d
+                 left join doc_project p on p.id = d.project_id
+                 left join doc_process_config c on c.instance_id = d.process_instance_id
+                 left join flow_node n on n.definition_id = c.definition_id and n.node_code = d.node_code
+        where d.project_id = #{projectId}
+        order by d.deadline asc, d.id desc
+    </select>
+
+    <select id="selectApproachingDeadlines" resultType="org.dromara.docman.domain.vo.DocNodeDeadlineVo">
+        select d.id,
+               d.process_instance_id as processInstanceId,
+               d.node_code as nodeCode,
+               d.project_id as projectId,
+               d.duration_days as durationDays,
+               d.deadline,
+               d.reminder_count as reminderCount,
+               d.last_reminded_at as lastRemindedAt,
+               p.name as projectName,
+               n.node_name as nodeName
+        from doc_node_deadline d
+                 left join doc_project p on p.id = d.project_id
+                 left join doc_process_config c on c.instance_id = d.process_instance_id
+                 left join flow_node n on n.definition_id = c.definition_id and n.node_code = d.node_code
+        where d.deadline &lt;= #{deadlineBefore}
+          and d.reminder_count &lt; #{maxReminderCount}
+        order by d.deadline asc
+    </select>
+
+</mapper>

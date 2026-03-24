@@ -13,4 +13,14 @@ public class DocmanJobConfig {
      * 文档待生成超过该天数后触发提醒。
      */
     private int documentReminderPendingDays = 3;
+
+    /**
+     * 节点截止日期提前多少天开始提醒。
+     */
+    private int reminderAdvanceDays = 3;
+
+    /**
+     * 节点截止提醒最大次数。
+     */
+    private int maxReminderCount = 5;
 }

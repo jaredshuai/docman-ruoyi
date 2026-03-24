@@ -3,6 +3,8 @@ package org.dromara.docman.controller;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
+import org.dromara.common.log.annotation.Log;
+import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.common.web.core.BaseController;
@@ -48,6 +50,7 @@ public class DocPluginController extends BaseController {
     }
 
     @SaCheckPermission("docman:plugin:trigger")
+    @Log(title = "插件手动触发", businessType = BusinessType.OTHER)
     @PostMapping("/execution/trigger")
     public R<Void> triggerExecution(@Validated @RequestBody DocPluginTriggerBo bo) {
         pluginApplicationService.triggerPlugin(bo);

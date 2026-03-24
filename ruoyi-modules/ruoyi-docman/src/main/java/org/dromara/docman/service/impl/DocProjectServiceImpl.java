@@ -154,6 +154,7 @@ public class DocProjectServiceImpl implements IDocProjectService {
         member.setProjectId(projectId);
         member.setUserId(userId);
         member.setRoleType(roleType);
+        member.setCreateTime(new java.util.Date());
         memberMapper.insert(member);
     }
 

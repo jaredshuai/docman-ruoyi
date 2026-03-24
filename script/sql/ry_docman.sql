@@ -182,6 +182,10 @@ VALUES (3031, '执行归档', 3030, 1, 'F', 'docman:archive:execute', 1, NOW());
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, menu_type, perms, icon, create_by, create_time)
 VALUES (3040, '插件列表', 3000, 5, 'plugin', 'docman/plugin/index', 'C', 'docman:plugin:list', 'component', 1, NOW());
 
+-- 文档详情查询权限
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3014, '文档详情', 3010, 4, 'F', 'docman:document:query', 1, NOW());
+
 -- 文档下载、删除权限
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
 VALUES (3012, '文档下载', 3010, 2, 'F', 'docman:document:download', 1, NOW());
@@ -289,3 +293,67 @@ insert into sys_menu values('3044', '手动触发', '3040', '2', '#', '', '', 1,
 
 -- 归档下载权限
 insert into sys_menu values('3034', '归档下载', '3030', '3', '#', '', '', 1, 0, 'F', '0', '0', 'docman:archive:download', '#', 103, 1, sysdate(), null, null, '');
+
+-- 项目成员管理页面菜单（挂在项目管理 3001 下，隐藏路由）
+insert into sys_menu values('3006', '成员管理', '3001', '1', 'member/:projectId', 'docman/member/index', '', 1, 1, 'C', '1', '0', 'docman:project:query', '#', 103, 1, sysdate(), null, null, '');
+-- 成员管理按钮权限
+insert into sys_menu values('3007', '成员查询', '3006', '1', '#', '', '', 1, 0, 'F', '0', '0', 'docman:project:query', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('3008', '成员新增', '3006', '2', '#', '', '', 1, 0, 'F', '0', '0', 'docman:project:edit', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('3009', '成员删除', '3006', '3', '#', '', '', 1, 0, 'F', '0', '0', 'docman:project:edit', '#', 103, 1, sysdate(), null, null, '');
+-- project/index.vue 中用到的跳转权限按钮（成员/流程/归档入口）
+insert into sys_menu values('3023', '流程查看', '3020', '3', '#', '', '', 1, 0, 'F', '0', '0', 'docman:process:query', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('3035', '归档查看', '3030', '4', '#', '', '', 1, 0, 'F', '0', '0', 'docman:archive:query', '#', 103, 1, sysdate(), null, null, '');
+
+-- ==========================================
+-- 节点截止日期记录表
+-- ==========================================
+CREATE TABLE doc_node_deadline (
+    id                  BIGINT          NOT NULL COMMENT '主键',
+    process_instance_id BIGINT          NOT NULL COMMENT '流程实例ID',
+    node_code           VARCHAR(100)    NOT NULL COMMENT '节点编码',
+    project_id          BIGINT          NOT NULL COMMENT '项目ID',
+    duration_days       INT             NOT NULL DEFAULT 0 COMMENT '节点时限(天)',
+    deadline            DATE            NOT NULL COMMENT '截止日期',
+    reminder_count      INT             NOT NULL DEFAULT 0 COMMENT '已提醒次数',
+    last_reminded_at    DATETIME        NULL COMMENT '最后提醒时间',
+    create_time         DATETIME        NULL COMMENT '创建时间',
+    update_time         DATETIME        NULL COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_instance_node (process_instance_id, node_code),
+    KEY idx_project (project_id),
+    KEY idx_deadline (deadline)
+) ENGINE=InnoDB COMMENT='节点截止日期记录';
+
+-- 查看节点截止日期列表权限（按钮级别）
+INSERT INTO sys_menu VALUES (3050, '节点截止查看', 3000, 1, '', '', '', 1, 0, 'F', '0', '0', 'docman:nodedeadline:query', '#', 103, 1, NOW(), NULL, NULL, '');
+-- 修改节点截止日期权限（按钮级别）
+INSERT INTO sys_menu VALUES (3051, '节点截止修改', 3000, 2, '', '', '', 1, 0, 'F', '0', '0', 'docman:nodedeadline:edit', '#', 103, 1, NOW(), NULL, NULL, '');
+
+-- 仪表盘菜单
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, menu_type, perms, icon, create_by, create_time)
+VALUES (3052, '仪表盘', 3000, 0, 'dashboard', 'docman/dashboard/index', 'C', 'docman:project:list', 'dashboard', 1, NOW());
+
+-- 修复 doc_node_deadline 唯一约束
+SET @idx_exists := (
+    SELECT COUNT(1)
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'doc_node_deadline'
+      AND index_name = 'idx_instance_node'
+);
+SET @drop_idx_sql := IF(@idx_exists > 0, 'ALTER TABLE doc_node_deadline DROP INDEX idx_instance_node', 'SELECT 1');
+PREPARE stmt FROM @drop_idx_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @uk_exists := (
+    SELECT COUNT(1)
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'doc_node_deadline'
+      AND index_name = 'uk_instance_node'
+);
+SET @add_uk_sql := IF(@uk_exists = 0, 'ALTER TABLE doc_node_deadline ADD UNIQUE KEY uk_instance_node (process_instance_id, node_code)', 'SELECT 1');
+PREPARE stmt FROM @add_uk_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

@@ -2,6 +2,7 @@ package org.dromara.docman.application.service;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.application.CommandApplicationService;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.file.FileUtils;
@@ -14,6 +15,7 @@ import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DocDocumentApplicationService implements CommandApplicationService {
@@ -36,6 +39,7 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         return documentRecordService.queryById(id);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void upload(DocDocumentRecordBo bo) {
         documentRecordService.recordUpload(bo);
     }
@@ -54,10 +58,12 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         }
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         documentRecordService.markObsoleteById(id);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void markObsolete(Long projectId) {
         documentRecordService.markObsoleteByProjectId(projectId);
     }
@@ -69,34 +75,45 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         }
         try {
             return documentStoragePort.load(nasPath);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("OSS读取失败，回退到本地存储路径: {}", nasPath, e);
             Path localPath = resolveLocalPath(nasPath);
             try {
                 return Files.readAllBytes(localPath);
-            } catch (IOException e) {
+            } catch (IOException ioException) {
                 throw new ServiceException("读取文档文件失败: " + localPath);
             }
         }
     }
 
     private Path resolveLocalPath(String nasPath) {
-        Path directPath = Paths.get(nasPath);
-        if (directPath.isAbsolute() && Files.exists(directPath)) {
-            return directPath;
+        Path localRoot = getLocalRoot();
+        Path sourcePath = Paths.get(nasPath).normalize();
+        Path localPath;
+        if (sourcePath.isAbsolute()) {
+            localPath = sourcePath.toAbsolutePath().normalize();
+        } else {
+            String relative = nasPath.startsWith("/") ? nasPath.substring(1) : nasPath;
+            if (relative.isBlank()) {
+                throw new ServiceException("文档存储路径为空");
+            }
+            localPath = localRoot.resolve(relative.replace("/", File.separator)).normalize();
         }
-        String relative = nasPath.startsWith("/") ? nasPath.substring(1) : nasPath;
-        if (relative.isBlank()) {
-            throw new ServiceException("文档存储路径为空");
+        if (!localPath.startsWith(localRoot)) {
+            throw new ServiceException("非法文档存储路径: " + nasPath);
         }
-        String localRootProp = System.getProperty(
-            "docman.upload.localRoot",
-            System.getProperty("java.io.tmpdir") + File.separator + "docman-upload"
-        );
-        Path localPath = Paths.get(localRootProp).resolve(relative.replace("/", File.separator));
         if (!Files.exists(localPath)) {
             throw new ServiceException("文档文件不存在: " + localPath);
         }
         return localPath;
+    }
+
+    private Path getLocalRoot() {
+        String localRootProp = System.getProperty(
+            "docman.upload.localRoot",
+            System.getProperty("java.io.tmpdir") + File.separator + "docman-upload"
+        );
+        return Paths.get(localRootProp).toAbsolutePath().normalize();
     }
 
     private String resolveFileName(DocDocumentRecord record) {

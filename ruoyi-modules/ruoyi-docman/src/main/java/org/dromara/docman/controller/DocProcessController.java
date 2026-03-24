@@ -45,6 +45,7 @@ public class DocProcessController extends BaseController {
         return R.ok(processQueryApplicationService.getConfig(projectId));
     }
 
+    @SaCheckPermission("docman:process:query")
     @GetMapping("/definitions")
     public R<List<Map<String, Object>>> listDefinitions() {
         return R.ok(processApplicationService.listDefinitions());
