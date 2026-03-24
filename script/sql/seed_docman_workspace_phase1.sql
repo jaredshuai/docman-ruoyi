@@ -25,7 +25,7 @@ INSERT INTO sys_role (
     remark
 )
 SELECT
-    COALESCE(MAX(role_id), 0) + 1,
+    COALESCE((SELECT MAX(role_id) FROM sys_role), 0) + 1,
     'Docman普通用户',
     @workspace_role_key,
     10,
@@ -35,7 +35,6 @@ SELECT
     1,
     NOW(),
     'Docman 普通用户工作台'
-FROM sys_role
 WHERE NOT EXISTS (
     SELECT 1 FROM sys_role WHERE role_key = @workspace_role_key
 );
