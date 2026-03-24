@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
  */
 @SpringBootTest
 @DisplayName("标签单元测试案例")
+@Disabled("示例测试，不纳入业务回归")
 public class TagUnitTest {
 
     @Tag("dev")

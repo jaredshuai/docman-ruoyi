@@ -2,6 +2,7 @@ package org.dromara.test;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
  * @author Lion Li
  */
 @DisplayName("断言单元测试案例")
+@Disabled("示例测试，不纳入业务回归")
 public class AssertUnitTest {
 
     @DisplayName("测试 assertEquals 方法")

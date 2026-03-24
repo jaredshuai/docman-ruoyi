@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
  */
 @SpringBootTest // 此注解只能在 springboot 主包下使用 需包含 main 方法与 yml 配置文件
 @DisplayName("单元测试案例")
+@Disabled("示例测试，不纳入业务回归")
 public class DemoUnitTest {
 
     @Autowired

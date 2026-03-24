@@ -4,6 +4,7 @@ import org.dromara.common.core.enums.UserType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -20,6 +21,7 @@ import java.util.stream.Stream;
  * @author Lion Li
  */
 @DisplayName("带参数单元测试案例")
+@Disabled("示例测试，不纳入业务回归")
 public class ParamUnitTest {
 
     @DisplayName("测试 @ValueSource 注解")
