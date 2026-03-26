@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.docman.domain.entity.DocPluginExecutionLog;
@@ -28,6 +29,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -319,6 +321,69 @@ class DocPluginExecutionLogServiceImplTest {
         // Then
         assertEquals(3L, pageCaptor.getValue().getCurrent());
         assertEquals(20L, pageCaptor.getValue().getSize());
+    }
+
+    // ==================== queryById Tests ====================
+
+    @Test
+    void queryById_shouldReturnLogVo_whenLogExists() {
+        // Given
+        Long logId = 1L;
+        Long projectId = 100L;
+        DocPluginExecutionLog log = new DocPluginExecutionLog();
+        log.setId(logId);
+        log.setProjectId(projectId);
+
+        DocPluginExecutionLogVo vo = new DocPluginExecutionLogVo();
+        vo.setId(logId);
+        vo.setProjectId(projectId);
+        vo.setPluginId("test_plugin");
+        vo.setPluginName("Test Plugin");
+
+        when(pluginExecutionLogMapper.selectById(logId)).thenReturn(log);
+        when(pluginExecutionLogMapper.selectVoById(logId)).thenReturn(vo);
+
+        // When
+        DocPluginExecutionLogVo result = service.queryById(logId);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(logId, result.getId());
+        assertEquals(projectId, result.getProjectId());
+        verify(projectAccessService).assertAction(projectId, DocProjectAction.VIEW_PROJECT);
+    }
+
+    @Test
+    void queryById_shouldThrowServiceException_whenLogNotFound() {
+        // Given
+        Long logId = 999L;
+        when(pluginExecutionLogMapper.selectById(logId)).thenReturn(null);
+
+        // When & Then
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.queryById(logId));
+        assertEquals("插件执行日志不存在", ex.getMessage());
+    }
+
+    @Test
+    void queryById_shouldCheckProjectAccessPermission() {
+        // Given
+        Long logId = 1L;
+        Long projectId = 200L;
+        DocPluginExecutionLog log = new DocPluginExecutionLog();
+        log.setId(logId);
+        log.setProjectId(projectId);
+
+        DocPluginExecutionLogVo vo = new DocPluginExecutionLogVo();
+        vo.setId(logId);
+
+        when(pluginExecutionLogMapper.selectById(logId)).thenReturn(log);
+        when(pluginExecutionLogMapper.selectVoById(logId)).thenReturn(vo);
+
+        // When
+        service.queryById(logId);
+
+        // Then
+        verify(projectAccessService).assertAction(eq(projectId), eq(DocProjectAction.VIEW_PROJECT));
     }
 
     // ==================== Helper Methods ====================
