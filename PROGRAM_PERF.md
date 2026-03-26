@@ -51,6 +51,8 @@
 
 路径：`script/sql/perf_index_doc_project.sql`
 
+**语法说明**：标准 MySQL 不支持 `CREATE INDEX IF NOT EXISTS`（MariaDB 支持）。若索引已存在会报 `Duplicate key name`，可忽略或先 `DROP INDEX` 再执行。
+
 ### 项目表 `doc_project`
 
 | 索引名 | 字段 | 用途 |
@@ -72,3 +74,10 @@
 |--------|------|------|
 | `idx_document_list` | `project_id, nas_path` | 文档列表排序与筛选 |
 | `idx_document_status` | `project_id, status` | 按项目与状态查询文档 |
+
+## 索引部署记录
+
+| 环境 | 数据库 | 状态 | 确认日期 | 备注 |
+|------|--------|------|---------|------|
+| 开发 | 10.34.200.174/app_db | ✅ 已部署 | 2026-03-26 | 7 个索引已存在 |
+| 生产 | 10.34.200.173/app_db | ✅ 已部署 | 2026-03-26 | 7 个索引已存在 |
