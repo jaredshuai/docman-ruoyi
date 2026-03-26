@@ -3,6 +3,7 @@ package org.dromara.docman.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.docman.constant.DocmanCacheNames;
 import org.dromara.docman.domain.bo.DocProjectMemberBo;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectMember;
@@ -12,6 +13,7 @@ import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectMemberMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
 import org.dromara.docman.service.IDocProjectMemberService;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,12 @@ public class DocProjectMemberServiceImpl implements IDocProjectMemberService {
         );
     }
 
+    /**
+     * 添加项目成员
+     * <p>
+     * 失效用户可访问项目列表缓存，使新成员立即可以访问项目
+     */
+    @CacheEvict(cacheNames = DocmanCacheNames.USER_ACCESSIBLE_PROJECTS, key = "#bo.userId")
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long addMember(DocProjectMemberBo bo) {
@@ -71,6 +79,12 @@ public class DocProjectMemberServiceImpl implements IDocProjectMemberService {
         return member.getId();
     }
 
+    /**
+     * 移除项目成员
+     * <p>
+     * 失效用户可访问项目列表缓存和用户项目角色缓存，
+     * 确保被移除的成员立即失去访问权限
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeMember(Long projectId, Long userId) {
@@ -88,6 +102,10 @@ public class DocProjectMemberServiceImpl implements IDocProjectMemberService {
         if (deleted == 0) {
             throw new ServiceException("项目成员不存在");
         }
+
+        // 失效缓存：用户可访问项目列表 + 用户项目角色
+        projectAccessService.evictAccessibleProjectsCache(List.of(userId));
+        projectAccessService.evictProjectRoleCache(projectId, List.of(userId));
     }
 
     private DocProject getProjectOrThrow(Long projectId) {
