@@ -2,4 +2,28 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.dromara.docman.mapper.DocProjectMapper">
+
+    <!-- 分页查询用户可访问的项目（JOIN优化，消除N+1） -->
+    <select id="selectAccessibleProjectVoPage" resultType="org.dromara.docman.domain.vo.DocProjectVo">
+        SELECT DISTINCT
+            p.id,
+            p.name,
+            p.customer_type,
+            p.business_type,
+            p.document_category,
+            p.status,
+            p.owner_id,
+            p.nas_base_path,
+            p.nas_dir_status,
+            p.remark,
+            p.create_by,
+            p.create_time,
+            p.update_time
+        FROM doc_project p
+        <if test="!isSuperAdmin">
+            INNER JOIN doc_project_member m ON p.id = m.project_id AND m.user_id = #{userId}
+        </if>
+        ${ew.customSqlSegment}
+    </select>
+
 </mapper>
