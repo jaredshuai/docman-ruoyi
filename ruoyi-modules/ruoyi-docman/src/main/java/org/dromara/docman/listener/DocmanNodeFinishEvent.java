@@ -4,12 +4,12 @@ import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
 
 /**
- * 节点完成事件 - 由 WorkflowGlobalListener.finish() 发布
- *
- * @deprecated 已迁移为 org.dromara.common.core.domain.event.WorkflowNodeFinishedEvent，
- * 请勿再新增依赖到 docman 模块内部事件。
+ * 节点完成事件。
+ * <p>
+ * 设计意图：由 WorkflowGlobalListener.finish() 发布，用于触发节点完成后的业务处理。
+ * 计划对接点：文档归档、消息通知、状态同步等监听器。
+ * 当前状态：骨架事件类，尚未接入业务流程。
  */
-@Deprecated(forRemoval = true)
 @Getter
 public class DocmanNodeFinishEvent extends ApplicationEvent {
 

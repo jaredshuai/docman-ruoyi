@@ -13,6 +13,13 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 知识库 HTTP 客户端实现。
+ * <p>
+ * 设计意图：通过 HTTP 调用外部知识库服务（如 RAG 服务），支持文档检索增强。
+ * 计划对接点：AI 生成插件的知识增强模式。
+ * 当前状态：骨架实现，配置项已预留，尚未接入业务流程。
+ */
 @Slf4j
 @Component
 public class HttpKnowledgeClient implements KnowledgeClient {
