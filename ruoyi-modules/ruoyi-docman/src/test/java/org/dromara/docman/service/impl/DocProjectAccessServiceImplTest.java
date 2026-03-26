@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.redis.utils.RedisUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectMember;
@@ -13,6 +14,8 @@ import org.dromara.docman.domain.enums.DocProjectRole;
 import org.dromara.docman.domain.service.DocProjectPermissionPolicy;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectMemberMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,6 +30,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -152,6 +156,80 @@ class DocProjectAccessServiceImplTest {
     private static void initTableInfo(Class<?> entityClass) {
         if (TableInfoHelper.getTableInfo(entityClass) == null) {
             TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), entityClass);
+        }
+    }
+
+    // ========== evictAccessibleProjectsCache tests ==========
+
+    @Nested
+    @DisplayName("evictAccessibleProjectsCache() 缓存失效测试")
+    class EvictAccessibleProjectsCache {
+
+        @Test
+        @DisplayName("正常删除用户可访问项目缓存")
+        void shouldEvictCacheForUserIds() {
+            try (MockedStatic<RedisUtils> redisMock = mockStatic(RedisUtils.class)) {
+                service.evictAccessibleProjectsCache(List.of(1L, 2L, 3L));
+
+                redisMock.verify(() -> RedisUtils.deleteObject(anyList()));
+            }
+        }
+
+        @Test
+        @DisplayName("空用户列表时不执行删除")
+        void shouldNotEvictWhenUserIdsEmpty() {
+            try (MockedStatic<RedisUtils> redisMock = mockStatic(RedisUtils.class)) {
+                service.evictAccessibleProjectsCache(List.of());
+
+                redisMock.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("null 用户列表时不执行删除")
+        void shouldNotEvictWhenUserIdsNull() {
+            try (MockedStatic<RedisUtils> redisMock = mockStatic(RedisUtils.class)) {
+                service.evictAccessibleProjectsCache(null);
+
+                redisMock.verifyNoInteractions();
+            }
+        }
+    }
+
+    // ========== evictProjectRoleCache tests ==========
+
+    @Nested
+    @DisplayName("evictProjectRoleCache() 缓存失效测试")
+    class EvictProjectRoleCache {
+
+        @Test
+        @DisplayName("正常删除用户项目角色缓存")
+        void shouldEvictCacheForProjectAndUserIds() {
+            try (MockedStatic<RedisUtils> redisMock = mockStatic(RedisUtils.class)) {
+                service.evictProjectRoleCache(100L, List.of(1L, 2L));
+
+                redisMock.verify(() -> RedisUtils.deleteObject(anyList()));
+            }
+        }
+
+        @Test
+        @DisplayName("空用户列表时不执行删除")
+        void shouldNotEvictWhenUserIdsEmpty() {
+            try (MockedStatic<RedisUtils> redisMock = mockStatic(RedisUtils.class)) {
+                service.evictProjectRoleCache(100L, List.of());
+
+                redisMock.verifyNoInteractions();
+            }
+        }
+
+        @Test
+        @DisplayName("null 项目ID时不执行删除")
+        void shouldNotEvictWhenProjectIdNull() {
+            try (MockedStatic<RedisUtils> redisMock = mockStatic(RedisUtils.class)) {
+                service.evictProjectRoleCache(null, List.of(1L));
+
+                redisMock.verifyNoInteractions();
+            }
         }
     }
 }
