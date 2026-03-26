@@ -26,9 +26,12 @@ import org.dromara.docman.service.IDocProjectService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,15 +48,11 @@ public class DocProjectServiceImpl implements IDocProjectService {
     @Override
     public TableDataInfo<DocProjectVo> queryPageList(DocProjectBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<DocProject> wrapper = buildQueryWrapper(bo);
-        if (!LoginHelper.isSuperAdmin()) {
-            List<Long> projectIds = projectAccessService.listAccessibleProjectIds(LoginHelper.getUserId());
-
-            if (projectIds.isEmpty()) {
-                return TableDataInfo.build(new Page<>());
-            }
-            wrapper.in(DocProject::getId, projectIds);
-        }
-        Page<DocProjectVo> page = projectMapper.selectVoPage(pageQuery.build(), wrapper);
+        boolean isSuperAdmin = LoginHelper.isSuperAdmin();
+        Long userId = LoginHelper.getUserId();
+        // 使用JOIN查询消除N+1问题
+        Page<DocProjectVo> page = projectMapper.selectAccessibleProjectVoPage(
+            pageQuery.build(), userId, isSuperAdmin, wrapper);
         return TableDataInfo.build(page);
     }
 
@@ -100,6 +99,11 @@ public class DocProjectServiceImpl implements IDocProjectService {
         return vo;
     }
 
+    /**
+     * 创建项目
+     * <p>
+     * 创建项目后会失效所有成员的缓存，确保成员立即可见项目
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long insertProject(DocProjectBo bo) {
@@ -114,14 +118,23 @@ public class DocProjectServiceImpl implements IDocProjectService {
 
         projectMapper.insert(project);
 
+        // 收集受影响的用户ID
+        Set<Long> affectedUserIds = new HashSet<>();
+        affectedUserIds.add(bo.getOwnerId());
+
         addMember(project.getId(), bo.getOwnerId(), DocProjectRole.OWNER.getCode());
         if (bo.getMemberIds() != null) {
             for (Long memberId : bo.getMemberIds()) {
                 if (!memberId.equals(bo.getOwnerId())) {
                     addMember(project.getId(), memberId, DocProjectRole.EDITOR.getCode());
+                    affectedUserIds.add(memberId);
                 }
             }
         }
+
+        // 失效所有受影响用户的缓存
+        projectAccessService.evictAccessibleProjectsCache(new ArrayList<>(affectedUserIds));
+
         return project.getId();
     }
 
@@ -132,15 +145,48 @@ public class DocProjectServiceImpl implements IDocProjectService {
         return projectMapper.updateById(project) > 0;
     }
 
+    /**
+     * 删除项目
+     * <p>
+     * 删除前先查询受影响的成员，删除后失效缓存
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteByIds(List<Long> ids) {
         ids.forEach(id -> projectAccessService.assertAction(id, DocProjectAction.DELETE_PROJECT));
+
+        // 先查询受影响的成员
+        List<DocProjectMember> affectedMembers = memberMapper.selectList(
+            new LambdaQueryWrapper<DocProjectMember>()
+                .in(DocProjectMember::getProjectId, ids)
+        );
+
+        // 按项目分组用户ID
+        java.util.Map<Long, List<Long>> projectUserMap = affectedMembers.stream()
+            .collect(Collectors.groupingBy(
+                DocProjectMember::getProjectId,
+                Collectors.mapping(DocProjectMember::getUserId, Collectors.toList())
+            ));
+
+        // 删除成员和项目
         memberMapper.delete(
             new LambdaQueryWrapper<DocProjectMember>()
                 .in(DocProjectMember::getProjectId, ids)
         );
-        return projectMapper.deleteByIds(ids) > 0;
+        boolean result = projectMapper.deleteByIds(ids) > 0;
+
+        // 批量失效缓存
+        Set<Long> allUserIds = affectedMembers.stream()
+            .map(DocProjectMember::getUserId)
+            .collect(Collectors.toSet());
+        projectAccessService.evictAccessibleProjectsCache(new ArrayList<>(allUserIds));
+
+        // 失效用户项目角色缓存
+        projectUserMap.forEach((projectId, userIds) ->
+            projectAccessService.evictProjectRoleCache(projectId, userIds)
+        );
+
+        return result;
     }
 
     @Override
