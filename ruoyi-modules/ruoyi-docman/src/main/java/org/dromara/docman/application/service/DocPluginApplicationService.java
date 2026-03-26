@@ -33,10 +33,20 @@ public class DocPluginApplicationService {
             .toList();
     }
 
+    /**
+     * 分页查询插件执行日志（列表不含快照字段）
+     */
     public TableDataInfo<DocPluginExecutionLogVo> listExecutionLogs(Long projectId, Long processInstanceId,
                                                                     String nodeCode, String pluginId,
                                                                     PageQuery pageQuery) {
         return pluginExecutionLogService.queryPageList(projectId, processInstanceId, nodeCode, pluginId, pageQuery);
+    }
+
+    /**
+     * 查询插件执行日志详情（包含完整快照字段）
+     */
+    public DocPluginExecutionLogVo getExecutionLogById(Long id) {
+        return pluginExecutionLogService.queryById(id);
     }
 
     public void triggerPlugin(DocPluginTriggerBo bo) {
