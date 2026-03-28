@@ -15,7 +15,9 @@ import org.dromara.docman.service.IDocProjectAccessService;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -103,8 +105,9 @@ public class DocDocumentViewerApplicationService {
             .buildAndExpand(ticketVo.getTicket())
             .encode()
             .toUriString();
+        String encodedSrc = UriUtils.encode(src, StandardCharsets.UTF_8);
         String viewerUrl = UriComponentsBuilder.fromUriString(viewerConfig.getBaseUrl())
-            .queryParam("src", src)
+            .query("src=" + encodedSrc)
             .queryParam("mode", PREVIEW_MODE)
             .build(true)
             .toUriString();

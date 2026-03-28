@@ -19,11 +19,15 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.net.URLDecoder;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -166,7 +170,11 @@ class DocDocumentViewerApplicationServiceTest {
             assertNull(result.getSaveToken());
             assertTrue(result.getSrc().startsWith("https://backend.example.com:18081/docman/document/viewer/content/"));
             assertTrue(result.getUrl().startsWith("https://viewer.example.com/?src="));
-            assertEquals(result.getSrc(), UriComponentsBuilder.fromUriString(result.getUrl()).build().getQueryParams().getFirst("src"));
+            String encodedSrc = UriUtils.encode(result.getSrc(), StandardCharsets.UTF_8);
+            assertTrue(result.getUrl().contains("?src=" + encodedSrc));
+            assertFalse(result.getUrl().contains("?src=" + result.getSrc()));
+            String parsedSrc = UriComponentsBuilder.fromUriString(result.getUrl()).build(true).getQueryParams().getFirst("src");
+            assertEquals(result.getSrc(), URLDecoder.decode(parsedSrc, StandardCharsets.UTF_8));
             assertTrue(result.getUrl().contains("&mode=preview"));
             assertNotNull(result.getExpireAt());
         } finally {
