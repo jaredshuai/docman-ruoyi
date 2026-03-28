@@ -244,8 +244,8 @@ class DocDocumentRecordControllerTest {
             documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         DocViewerUrlVo viewerUrlVo = new DocViewerUrlVo();
-        viewerUrlVo.setUrl("https://viewer.example.com/?src=%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2Fopaque&mode=preview");
-        viewerUrlVo.setSrc("/docman/document/viewer/content/opaque");
+        viewerUrlVo.setUrl("https://viewer.example.com/?src=https%3A%2F%2Fbackend.example.com%3A18081%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2Fopaque&mode=preview");
+        viewerUrlVo.setSrc("https://backend.example.com:18081/docman/document/viewer/content/opaque");
         viewerUrlVo.setMode("preview");
         when(documentViewerApplicationService.getViewerUrl(9L)).thenReturn(viewerUrlVo);
 
@@ -277,5 +277,20 @@ class DocDocumentRecordControllerTest {
         assertArrayEquals(content, response.getContentAsByteArray());
         assertTrue(response.getHeader("Content-Disposition").startsWith("inline; filename*=UTF-8''"));
         assertTrue(response.getHeader("Content-Disposition").contains("%E6%B5%8B%E8%AF%95%20%E6%96%87%E6%A1%A3.docx"));
+    }
+
+    @Test
+    void shouldPropagateSanitizedViewerContentErrors() {
+        DocDocumentRecordController controller = new DocDocumentRecordController(
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
+        );
+        when(documentViewerApplicationService.loadViewerContent("opaque-ticket"))
+            .thenThrow(new ServiceException("文档内容读取失败"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> controller.viewerContent("opaque-ticket", response));
+
+        assertEquals("文档内容读取失败", ex.getMessage());
+        assertTrue(!ex.getMessage().contains("/"));
     }
 }

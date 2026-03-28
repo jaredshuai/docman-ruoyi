@@ -12,6 +12,7 @@ import org.dromara.docman.domain.vo.DocViewerTicketVo;
 import org.dromara.docman.domain.vo.DocViewerUrlVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.dromara.docman.service.IDocProjectAccessService;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -97,8 +98,10 @@ public class DocDocumentViewerApplicationService {
         }
 
         DocViewerTicketVo ticketVo = createViewerTicket(documentId);
-        String src = UriComponentsBuilder.fromPath("/docman/document/viewer/content/{ticket}")
+        String src = ServletUriComponentsBuilder.fromCurrentContextPath()
+            .path("/docman/document/viewer/content/{ticket}")
             .buildAndExpand(ticketVo.getTicket())
+            .encode()
             .toUriString();
         String viewerUrl = UriComponentsBuilder.fromUriString(viewerConfig.getBaseUrl())
             .queryParam("src", src)

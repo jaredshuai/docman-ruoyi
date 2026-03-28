@@ -84,7 +84,7 @@ class DocDocumentApplicationServiceTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         ServiceException ex = assertThrows(ServiceException.class, () -> applicationService.download(2L, response));
-        assertEquals("非法文档存储路径: ../../secret.txt", ex.getMessage());
+        assertEquals("文档内容读取失败", ex.getMessage());
     }
 
     @Test
@@ -96,6 +96,24 @@ class DocDocumentApplicationServiceTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         ServiceException ex = assertThrows(ServiceException.class, () -> applicationService.download(3L, response));
-        assertEquals("文档存储路径为空", ex.getMessage());
+        assertEquals("文档内容不可用", ex.getMessage());
+    }
+
+    @Test
+    void shouldSanitizeMissingFallbackFileError() {
+        System.setProperty("docman.upload.localRoot", tempDir.toString());
+
+        DocDocumentRecord record = new DocDocumentRecord();
+        record.setNasPath("/missing/secret.txt");
+        record.setFileName("secret.txt");
+        when(documentRecordService.queryEntityById(anyLong())).thenReturn(record);
+        when(documentStoragePort.load("/missing/secret.txt")).thenThrow(new IllegalStateException("oss unavailable"));
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> applicationService.download(4L, response));
+        assertEquals("文档内容读取失败", ex.getMessage());
+        org.junit.jupiter.api.Assertions.assertFalse(ex.getMessage().contains("secret.txt"));
+        org.junit.jupiter.api.Assertions.assertFalse(ex.getMessage().contains(tempDir.toString()));
     }
 }

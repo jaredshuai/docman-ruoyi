@@ -15,6 +15,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -146,6 +150,11 @@ class DocDocumentViewerApplicationServiceTest {
         record.setProjectId(202L);
         when(documentRecordService.queryEntityById(101L)).thenReturn(record);
         doNothing().when(projectAccessService).assertAction(202L, DocProjectAction.VIEW_DOCUMENT);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setScheme("https");
+        request.setServerName("backend.example.com");
+        request.setServerPort(18081);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
         try (MockedStatic<LoginHelper> loginHelper = mockStatic(LoginHelper.class)) {
             loginHelper.when(LoginHelper::getUserId).thenReturn(303L);
@@ -155,12 +164,13 @@ class DocDocumentViewerApplicationServiceTest {
             assertEquals("preview", result.getMode());
             assertNull(result.getSaveUrl());
             assertNull(result.getSaveToken());
-            assertTrue(result.getSrc().startsWith("/docman/document/viewer/content/"));
+            assertTrue(result.getSrc().startsWith("https://backend.example.com:18081/docman/document/viewer/content/"));
             assertTrue(result.getUrl().startsWith("https://viewer.example.com/?src="));
-            assertTrue(result.getUrl().contains("%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2F")
-                || result.getUrl().contains("/docman/document/viewer/content/"));
+            assertEquals(result.getSrc(), UriComponentsBuilder.fromUriString(result.getUrl()).build().getQueryParams().getFirst("src"));
             assertTrue(result.getUrl().contains("&mode=preview"));
             assertNotNull(result.getExpireAt());
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
         }
     }
 

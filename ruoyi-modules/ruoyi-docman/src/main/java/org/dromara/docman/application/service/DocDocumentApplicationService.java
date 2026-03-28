@@ -94,17 +94,17 @@ public class DocDocumentApplicationService implements CommandApplicationService 
     private byte[] loadDocumentContentInternal(DocDocumentRecord record) {
         String nasPath = record.getNasPath();
         if (nasPath == null || nasPath.isBlank()) {
-            throw new ServiceException("文档存储路径为空");
+            throw new ServiceException("文档内容不可用");
         }
         try {
             return documentStoragePort.load(nasPath);
         } catch (Exception e) {
-            log.warn("OSS读取失败，回退到本地存储路径: {}", nasPath, e);
+            log.warn("OSS读取失败，回退到本地存储", e);
             Path localPath = resolveLocalPath(nasPath);
             try {
                 return Files.readAllBytes(localPath);
             } catch (IOException ioException) {
-                throw new ServiceException("读取文档文件失败: " + localPath);
+                throw new ServiceException("文档内容读取失败");
             }
         }
     }
@@ -118,15 +118,15 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         } else {
             String relative = nasPath.startsWith("/") ? nasPath.substring(1) : nasPath;
             if (relative.isBlank()) {
-                throw new ServiceException("文档存储路径为空");
+                throw new ServiceException("文档内容不可用");
             }
             localPath = localRoot.resolve(relative.replace("/", File.separator)).normalize();
         }
         if (!localPath.startsWith(localRoot)) {
-            throw new ServiceException("非法文档存储路径: " + nasPath);
+            throw new ServiceException("文档内容读取失败");
         }
         if (!Files.exists(localPath)) {
-            throw new ServiceException("文档文件不存在: " + localPath);
+            throw new ServiceException("文档内容读取失败");
         }
         return localPath;
     }
