@@ -200,8 +200,8 @@ Permission: docman:document:query
 **响应 `data`：**
 ```json
 {
-  "url": "http://localhost:8012/?src=%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2F4e6a7b9d8c1f4f5da6c1f90f31b7e2aa&mode=preview",
-  "src": "/docman/document/viewer/content/4e6a7b9d8c1f4f5da6c1f90f31b7e2aa",
+  "url": "http://localhost:8012/?src=https%3A%2F%2Fbackend.example.com%3A18081%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2F4e6a7b9d8c1f4f5da6c1f90f31b7e2aa&mode=preview",
+  "src": "https://backend.example.com:18081/docman/document/viewer/content/4e6a7b9d8c1f4f5da6c1f90f31b7e2aa",
   "mode": "preview",
   "saveUrl": null,
   "saveToken": null,
@@ -212,6 +212,8 @@ Permission: docman:document:query
 说明：
 - 前端已实现的最小用法：请求该接口后直接跳转 `url`
 - 外部 viewer 地址根路径来自 `docman.viewer.base-url`
+- `src` 必须是带 backend origin 的绝对地址，供独立部署的外部 viewer 直接拉取文档流；不能写成相对路径，也不应暗示必须通过同源代理访问
+- 若 backend 通过 Sa-Token Cookie / 会话鉴权保护 `viewer/content/{ticket}`，则外部 viewer 发起 `src` 请求时也必须携带对应登录态；部署上通常要求可共享 Cookie 的域名布局与允许凭证透传的跨站请求配置
 - 仅预留 `mode=edit`、保存回调协议，当前未实现
 
 ### 2.6 获取预览内容

@@ -142,7 +142,9 @@ Topiam IAM/IDaaS身份管理平台 - https://www.topiam.cn/ <br>
 ## Docman viewer 集成补充
 
 - 已实现：`ruoyi-docman` 后端预览链路支持 `viewer-ticket`、`viewer-url`、`viewer/content/{ticket}`，并通过 `docman.viewer.enabled`、`docman.viewer.base-url`、`docman.viewer.ticket-ttl-seconds` 控制行为。
-- 已实现：外部文档 viewer 作为独立服务部署，前端最小入口位于 sibling 仓库 `D:/codespace/docman-plus-ui`，由文档列表页调用 `viewer-url` 后跳转。
+- 已实现：`viewer-url` 返回的 `url` 指向外部独立部署的 viewer，`src` 则是**带后端 origin 的绝对地址**（例如 `https://backend.example.com:18081/docman/document/viewer/content/{ticket}`），外部 viewer 可直接跨站请求该地址，不依赖与后端同源或额外反向代理。
+- 已实现：外部文档 viewer 作为独立服务部署，前端最小入口位于 sibling 仓库 `D:/codespace/docman-plus-ui`，由文档列表页调用 `viewer-url` 后跳转，而不是在前端拼接存储地址。
+- 部署提示：若后端鉴权依赖 Sa-Token 登录态 Cookie，则外部 viewer 发起 `src` 请求时需要让浏览器携带该 Cookie（常见做法是同一顶级域部署并配置允许携带凭证的跨站请求）；若运行环境无法转发登录态，请在后续迭代补充专用回调/鉴权方案。
 - 仅预留：`mode=edit`、`saveUrl`、`saveToken` 仍是后续扩展位，本仓库当前不宣称完整在线编辑能力。
 - 本地联调、Redis key 设计与集成边界见 `DOCMAN_VIEWER_INTEGRATION.md`。
 
