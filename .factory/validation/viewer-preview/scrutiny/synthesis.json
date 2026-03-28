@@ -1,0 +1,82 @@
+{
+  "milestone": "viewer-preview",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "mvn -f \"D:\\codespace\\docman-ruoyi\\pom.xml\" -pl ruoyi-modules/ruoyi-docman -DskipTests=false \"-Dtest=DocDocumentRecordControllerTest,DocDocumentApplicationServiceTest,*Viewer*Test\" test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "mvn -f \"D:\\codespace\\docman-ruoyi\\pom.xml\" -pl ruoyi-modules/ruoyi-docman -DskipTests test-compile",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "npm --prefix \"D:\\codespace\\docman-plus-ui\" run lint:eslint -- src/views/docman/document/index.vue src/api/docman/document.ts src/api/docman/types.ts",
+      "exitCode": 0
+    },
+    "build": {
+      "passed": true,
+      "command": "npm --prefix \"D:\\codespace\\docman-plus-ui\" run build:dev",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "failedFeatures": [
+      "viewer-url-and-content-delivery",
+      "frontend-minimal-preview-entry",
+      "viewer-local-config-and-integration-docs"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "viewer-url-and-content-delivery",
+      "severity": "blocking",
+      "description": "The backend builds viewer `src` as a path-only URL, so an independently deployed external viewer resolves content requests against its own origin instead of the backend that issued the ticket."
+    },
+    {
+      "featureId": "viewer-url-and-content-delivery",
+      "severity": "blocking",
+      "description": "Preview content delivery can surface concrete local storage paths through propagated `ServiceException` messages, violating the no-storage-leakage contract."
+    },
+    {
+      "featureId": "frontend-minimal-preview-entry",
+      "severity": "blocking",
+      "description": "The frontend preview action reads `res.url` instead of `res.data.url`, so successful `viewer-url` responses do not navigate to the external viewer."
+    },
+    {
+      "featureId": "viewer-local-config-and-integration-docs",
+      "severity": "blocking",
+      "description": "The integration guide omits the current same-origin/reverse-proxy/auth-forwarding requirement implied by the relative, auth-protected preview `src`, so the documented standalone deployment guidance is incomplete."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "library",
+      "suggestion": "Document the sibling plus-ui response-envelope convention: `src/utils/request.ts` resolves `R.ok(...)` endpoints as `res.data`, while paginated list endpoints expose `rows` and `total` at top level.",
+      "evidence": "The frontend preview feature consumed `viewer-url` as `res.url` and failed. Reviewer evidence cites `D:/codespace/docman-plus-ui/src/utils/request.ts` and neighboring docman views that read `res.data`.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Clarify the external viewer contract by stating whether `viewer-url.src` must be an absolute backend-origin URL or whether workers may rely on same-origin/reverse-proxy deployment assumptions.",
+      "evidence": "Both the backend delivery feature and docs feature treated `src` as a relative path while mission docs also described the viewer as independently deployed on another origin.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Add Windows Exec guidance for starting `.factory/init.sh` and keeping the `docman-plus-ui` Vite dev server alive for browser validation.",
+      "evidence": "Reviewer reports and worker transcripts show repeated Windows startup issues for `.factory/init.sh` and `docman-plus-ui`, leading to incomplete browser validation attempts.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}

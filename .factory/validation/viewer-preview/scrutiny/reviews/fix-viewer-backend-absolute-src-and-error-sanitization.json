@@ -1,0 +1,28 @@
+{
+  "featureId": "fix-viewer-backend-absolute-src-and-error-sanitization",
+  "reviewedAt": "2026-03-28T16:49:30.4876737Z",
+  "commitId": "28cd03e4629fd38e674a207f41eab8be8d9d23fb",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The fix closes the original storage-path leakage and switches `src` to a backend-origin absolute URL, but the feature still falls short of its stated contract because the emitted viewer URL is not guaranteed to carry that `src` in percent-encoded form, and the added regression test would not catch that mismatch.",
+    "issues": [
+      {
+        "file": "ruoyi-modules/ruoyi-docman/src/main/java/org/dromara/docman/application/service/DocDocumentViewerApplicationService.java",
+        "line": 107,
+        "severity": "blocking",
+        "description": "In commit `28cd03e4629fd38e674a207f41eab8be8d9d23fb`, `getViewerUrl` now makes `src` absolute via `ServletUriComponentsBuilder`, but it still passes the raw absolute URL into `queryParam(\"src\", src)` and finalizes the URI with `build(true)`. Because `build(true)` assumes the query value is already encoded, the returned `url` is not guaranteed to emit the percent-encoded `src=` form required by the feature description and the updated shared contract docs (`.factory/library/architecture.md` and `.factory/library/api.md`). That leaves the fix incomplete for the 'encoded absolute backend-origin src URL' requirement."
+      },
+      {
+        "file": "ruoyi-modules/ruoyi-docman/src/test/java/org/dromara/docman/application/service/DocDocumentViewerApplicationServiceTest.java",
+        "line": 168,
+        "severity": "non_blocking",
+        "description": "The regression test added for the fix only asserts that parsing `result.getUrl()` yields the same `src` string; it never asserts that the serialized viewer URL contains a percent-encoded absolute `src`. As a result, the feature's promised regression coverage does not actually prove the encoded-wire contract."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "viewer-url-and-content-delivery",
+  "summary": "Reviewed the mission docs, prior failed review, both relevant diffs (`ff0705209` and `28cd03e4629fd38e674a207f41eab8be8d9d23fb`), the fix handoff, transcript skeleton, and backend skill/shared-state files. The fix successfully sanitizes preview-facing storage errors and changes `src` to an absolute backend URL, but it still fails review because it does not fully implement or prove the required encoded `src=` viewer-url contract."
+}

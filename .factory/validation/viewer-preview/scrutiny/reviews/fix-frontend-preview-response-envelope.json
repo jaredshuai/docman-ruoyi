@@ -1,0 +1,25 @@
+{
+  "featureId": "fix-frontend-preview-response-envelope",
+  "reviewedAt": "2026-03-29T00:47:19.7801093+08:00",
+  "commitId": "87c6dffcdc5a5de0e2ad45b53a089696eb21748a",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Reviewed both relevant frontend diffs: the original failed feature commit `8a3a330b96c1f6db6910eb83a84b0b724e88e815` and the fix commit `87c6dffcdc5a5de0e2ad45b53a089696eb21748a`. The original implementation added the preview action but dereferenced `res.url` directly in `D:/codespace/docman-plus-ui/src/views/docman/document/index.vue`, which did not match the sibling frontend request wrapper (`D:/codespace/docman-plus-ui/src/utils/request.ts` resolves successful responses as the standard `{ code, msg, data }` envelope). The fix is narrowly scoped to the same page logic, changes the handler to read `res.data.url`, and then navigates with `window.location.href = viewerUrl`, so it directly resolves the prior preview-navigation failure without widening scope.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "category": "skill_gap",
+      "observation": "The frontend skill/service guidance still lacks a Windows Exec-safe pattern for keeping the Vite dev server alive long enough for required browser validation. The fix worker followed the documented local port and API-target setup, but the UI process still exited before browser automation could attach, so the skipped agent-browser validation looks like an infrastructure/procedure gap rather than a feature-specific mistake.",
+      "evidence": [
+        "D:/codespace/docman-ruoyi/.factory/services.yaml defines `docman-plus-ui` startup as a PowerShell `npm run dev` command on port 3101 with `VITE_APP_API_TARGET`",
+        "D:/codespace/docman-ruoyi/.factory/skills/docman-frontend-worker/SKILL.md requires agent-browser verification when the local UI service is runnable",
+        "C:/Users/jared/.factory/missions/c01fa67e-abe5-4765-bdd5-1164bcfb33d3/handoffs/2026-03-28T16-24-36-069Z__fix-frontend-preview-response-envelope__1511406b-b1e7-4362-b5ef-e5f0fc6a7f91.json records repeated local dev-server startup attempts that exited immediately, leaving no persistent UI for browser validation despite successful lint/build"
+      ]
+    }
+  ],
+  "addressesFailureFrom": "frontend-minimal-preview-entry",
+  "summary": "Pass. The fix adequately addresses the original failure by unwrapping the backend response envelope correctly (`res.data.url`) in the preview handler, which restores navigation to the backend-provided external viewer URL while keeping the change limited to the intended frontend page."
+}

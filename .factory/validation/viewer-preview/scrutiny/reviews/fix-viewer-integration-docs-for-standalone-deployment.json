@@ -1,0 +1,25 @@
+{
+  "featureId": "fix-viewer-integration-docs-for-standalone-deployment",
+  "reviewedAt": "2026-03-28T16:46:55.9475532Z",
+  "commitId": "de81926c64081e1010ec8f8553055c8e2b716a18",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Reviewed the original failing docs diff (`89f62d7f047034cb844c510ba9667b2f89c3e78c`), the fix diff (`de81926c64081e1010ec8f8553055c8e2b716a18`), the fix-session transcript skeleton, and the backend contract evidence in `DocDocumentViewerApplicationService` plus its regression test. The fix closes the prior gap: `README.md`, `API_CONTRACT.md`, and `DOCMAN_VIEWER_INTEGRATION.md` now all describe `viewer-url.data.src` as an absolute backend-origin URL, explain that standalone viewers fetch backend `viewer/content/{ticket}` directly rather than via same-origin proxying, call out the Cookie/session-forwarding requirement for protected content, and still keep preview-only behavior separate from reserved edit placeholders.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skill/environment gap",
+      "observation": "The Windows/bash init-script guidance gap remains unresolved. This fix-session worker again deviated from the documented procedure because `.factory/init.sh` is a bash script but the procedure does not say how to invoke it on Windows or when it is acceptable to skip it for docs-only work.",
+      "evidence": [
+        "The transcript skeleton for session `24e8de8e-7706-4f6d-a14f-2cf24a14e40b` shows an attempted `powershell -ExecutionPolicy Bypass -File \"D:\\codespace\\docman-ruoyi\\.factory\\init.sh\"` invocation, then a fallback to just reading the script instead of running it.",
+        "The handoff for that session marks `skillFeedback.followedProcedure` as false for step `1.2 Initialize Environment` and suggests Windows-specific guidance.",
+        "`D:/codespace/docman-ruoyi/.factory/init.sh` starts with `#!/usr/bin/env bash`, while `D:/codespace/docman-ruoyi/.factory/skills/docman-backend-worker/SKILL.md` and `D:/codespace/docman-ruoyi/.factory/library/environment.md` do not document a Windows-compatible invocation or skip condition."
+      ]
+    }
+  ],
+  "addressesFailureFrom": "viewer-local-config-and-integration-docs",
+  "summary": "Pass. The original docs feature failed because it documented standalone deployment without explaining the backend-relative `src` limitation. After reviewing both diffs and the fix transcript, I found that the updated README, API contract, and integration guide now accurately match the implemented standalone-safe backend contract and adequately address the prior failure."
+}

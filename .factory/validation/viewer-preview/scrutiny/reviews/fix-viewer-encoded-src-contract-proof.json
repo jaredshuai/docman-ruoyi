@@ -1,0 +1,15 @@
+{
+  "featureId": "fix-viewer-encoded-src-contract-proof",
+  "reviewedAt": "2026-03-28T16:48:05.8892671Z",
+  "commitId": "678535bb7f7301041274943157f24033630072cb",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix closes the remaining viewer-url contract gap: `getViewerUrl` now emits a percent-encoded absolute backend-origin `src` in the final external viewer URL string, and the updated regression test proves that contract on the emitted `url` itself while still verifying round-trip decoding back to the expected backend content endpoint.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": "fix-viewer-backend-absolute-src-and-error-sanitization",
+  "summary": "Reviewed the mission metadata, prior failed review, worker transcript skeleton, backend skill, and commit `678535bb7f7301041274943157f24033630072cb`. The implementation is narrowly scoped to the flagged gap, and both the service change and regression assertion satisfy the encoded absolute-`src` viewer-url contract without introducing new review findings."
+}

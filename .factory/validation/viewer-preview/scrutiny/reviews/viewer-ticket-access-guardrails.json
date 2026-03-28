@@ -1,0 +1,15 @@
+{
+  "featureId": "viewer-ticket-access-guardrails",
+  "reviewedAt": "2026-03-29T00:53:20.3361105+08:00",
+  "commitId": "5b1db4fb7",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature satisfies the ticket-issuance contract: it adds `docman.viewer` configuration, stores opaque Redis-backed tickets under the required prefix with TTL, keeps both controller and project-access checks in place, and includes focused backend tests for success, disabled mode, and permission denial.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed `README.md`, mission metadata, `AGENTS.md`, `.factory/services.yaml`, `.factory/library/*`, the worker transcript skeleton, handoff, backend skill instructions, and commit `5b1db4fb7`. The feature passes: `POST /docman/document/{id}/viewer-ticket` is guarded by `@SaCheckPermission`, ticket creation persists opaque metadata under `docman:viewer:ticket:` with configurable TTL, `DocProjectAction.VIEW_DOCUMENT` remains enforced, and the added backend tests cover the requested issuance, disabled-mode, and permission-denied scenarios."
+}
