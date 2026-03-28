@@ -139,6 +139,13 @@ Topiam IAM/IDaaS身份管理平台 - https://www.topiam.cn/ <br>
 >[参考文档 Wiki](https://plus-doc.dromara.org)
 >>[https://plus-doc.dromara.org](https://plus-doc.dromara.org)
 
+## Docman viewer 集成补充
+
+- 已实现：`ruoyi-docman` 后端预览链路支持 `viewer-ticket`、`viewer-url`、`viewer/content/{ticket}`，并通过 `docman.viewer.enabled`、`docman.viewer.base-url`、`docman.viewer.ticket-ttl-seconds` 控制行为。
+- 已实现：外部文档 viewer 作为独立服务部署，前端最小入口位于 sibling 仓库 `D:/codespace/docman-plus-ui`，由文档列表页调用 `viewer-url` 后跳转。
+- 仅预留：`mode=edit`、`saveUrl`、`saveToken` 仍是后续扩展位，本仓库当前不宣称完整在线编辑能力。
+- 本地联调、Redis key 设计与集成边界见 `DOCMAN_VIEWER_INTEGRATION.md`。
+
 ## 软件架构图
 
 ![Plus部署架构图](https://foruda.gitee.com/images/1678981882624240692/ae2a3f3e_1766278.png "Plus部署架构图.png")

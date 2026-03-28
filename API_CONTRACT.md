@@ -166,6 +166,73 @@ Permission: docman:document:upload
 }
 ```
 
+### 2.4 创建预览票据
+```
+POST /docman/document/{id}/viewer-ticket
+Permission: docman:document:query
+```
+
+**响应 `data`：**
+```json
+{
+  "ticket": "4e6a7b9d8c1f4f5da6c1f90f31b7e2aa",
+  "documentId": 1,
+  "projectId": 1,
+  "userId": 100,
+  "mode": "preview",
+  "saveUrl": null,
+  "saveToken": null,
+  "expireAt": "2026-03-28T15:00:00Z"
+}
+```
+
+约束：
+- 已实现：仅支持 `mode=preview`
+- 仅预留：`saveUrl`、`saveToken` 现阶段固定为空
+- 不得返回 OSS 原始地址、本地真实路径或 `nasPath`
+
+### 2.5 获取外部 viewer URL
+```
+GET /docman/document/{id}/viewer-url
+Permission: docman:document:query
+```
+
+**响应 `data`：**
+```json
+{
+  "url": "http://localhost:8012/?src=%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2F4e6a7b9d8c1f4f5da6c1f90f31b7e2aa&mode=preview",
+  "src": "/docman/document/viewer/content/4e6a7b9d8c1f4f5da6c1f90f31b7e2aa",
+  "mode": "preview",
+  "saveUrl": null,
+  "saveToken": null,
+  "expireAt": "2026-03-28T15:00:00Z"
+}
+```
+
+说明：
+- 前端已实现的最小用法：请求该接口后直接跳转 `url`
+- 外部 viewer 地址根路径来自 `docman.viewer.base-url`
+- 仅预留 `mode=edit`、保存回调协议，当前未实现
+
+### 2.6 获取预览内容
+```
+GET /docman/document/viewer/content/{ticket}
+Permission: docman:document:query
+```
+
+说明：
+- 使用票据返回文档字节流与安全的文件名 / `Content-Type`
+- 后端会再次校验项目 `VIEW_DOCUMENT` 权限
+- 未知票据或过期票据必须安全拒绝
+
+### 2.7 Viewer 配置与 Redis 设计
+
+- `docman.viewer.enabled`: 控制预览链路开关
+- `docman.viewer.base-url`: 外部文档 viewer 部署地址
+- `docman.viewer.ticket-ttl-seconds`: 票据 TTL，默认 `300`
+- Redis key 设计：`docman:viewer:ticket:{token}`
+- TTL 内允许重复读取同一 `src`；超时后需重新申请票据
+
 ---
 
 ## 3. 流程编排 `/docman/process`
