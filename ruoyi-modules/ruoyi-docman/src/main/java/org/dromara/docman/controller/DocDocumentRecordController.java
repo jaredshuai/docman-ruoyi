@@ -14,11 +14,13 @@ import org.dromara.common.web.core.BaseController;
 import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.application.service.DocDocumentApplicationService;
 import org.dromara.docman.application.service.DocDocumentQueryApplicationService;
+import org.dromara.docman.application.service.DocDocumentViewerApplicationService;
 import org.dromara.docman.application.service.DocProjectQueryApplicationService;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
 import org.dromara.docman.domain.enums.DocDocumentSourceType;
 import org.dromara.docman.domain.vo.DocProjectVo;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
+import org.dromara.docman.domain.vo.DocViewerTicketVo;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -42,6 +44,7 @@ public class DocDocumentRecordController extends BaseController {
 
     private final DocDocumentApplicationService documentApplicationService;
     private final DocDocumentQueryApplicationService documentQueryApplicationService;
+    private final DocDocumentViewerApplicationService documentViewerApplicationService;
     private final DocProjectQueryApplicationService projectQueryApplicationService;
     private final DocumentStoragePort documentStoragePort;
 
@@ -61,6 +64,12 @@ public class DocDocumentRecordController extends BaseController {
     @GetMapping("/{id}/download")
     public void download(@PathVariable Long id, HttpServletResponse response) {
         documentApplicationService.download(id, response);
+    }
+
+    @SaCheckPermission("docman:document:query")
+    @PostMapping("/{id}/viewer-ticket")
+    public R<DocViewerTicketVo> createViewerTicket(@PathVariable Long id) {
+        return R.ok(documentViewerApplicationService.createViewerTicket(id));
     }
 
     @SaCheckPermission("docman:document:upload")

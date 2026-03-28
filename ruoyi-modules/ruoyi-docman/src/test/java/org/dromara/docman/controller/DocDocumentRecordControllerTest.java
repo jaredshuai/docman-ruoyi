@@ -7,11 +7,13 @@ import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.application.service.DocDocumentApplicationService;
 import org.dromara.docman.application.service.DocDocumentQueryApplicationService;
+import org.dromara.docman.application.service.DocDocumentViewerApplicationService;
 import org.dromara.docman.application.service.DocProjectQueryApplicationService;
 import org.dromara.docman.domain.bo.DocDocumentRecordBo;
 import org.dromara.docman.domain.enums.DocDocumentSourceType;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.domain.vo.DocProjectVo;
+import org.dromara.docman.domain.vo.DocViewerTicketVo;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +47,9 @@ class DocDocumentRecordControllerTest {
     private DocDocumentQueryApplicationService documentQueryApplicationService;
 
     @Mock
+    private DocDocumentViewerApplicationService documentViewerApplicationService;
+
+    @Mock
     private DocProjectQueryApplicationService projectQueryApplicationService;
 
     @Mock
@@ -53,7 +58,7 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldDelegateDocumentListQuery() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         PageQuery pageQuery = new PageQuery(10, 1);
         TableDataInfo<DocDocumentRecordVo> expected = TableDataInfo.build(List.of(new DocDocumentRecordVo()));
@@ -67,7 +72,7 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldRejectEmptyUploadFile() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         MockMultipartFile file = new MockMultipartFile("file", "", "application/octet-stream", new byte[0]);
 
@@ -80,7 +85,7 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldRejectUploadWhenFileExceedsLimit() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         MockMultipartFile file = new MockMultipartFile("file", "big.pdf", "application/pdf", new byte[1]);
         org.springframework.web.multipart.MultipartFile oversized = new org.springframework.web.multipart.MultipartFile() {
@@ -136,7 +141,7 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldRejectUnsupportedFileExtension() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         MockMultipartFile file = new MockMultipartFile("file", "script.exe", "application/octet-stream", "x".getBytes(StandardCharsets.UTF_8));
 
@@ -148,7 +153,7 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldRejectUploadWhenProjectDoesNotExist() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         MockMultipartFile file = new MockMultipartFile("file", "report.pdf", "application/pdf", "demo".getBytes(StandardCharsets.UTF_8));
         when(projectQueryApplicationService.getById(1L)).thenReturn(null);
@@ -161,7 +166,7 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldUploadDocumentAndPersistRecord() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
         MockMultipartFile file = new MockMultipartFile(
             "file",
@@ -203,12 +208,29 @@ class DocDocumentRecordControllerTest {
     @Test
     void shouldDeleteDocumentById() {
         DocDocumentRecordController controller = new DocDocumentRecordController(
-            documentApplicationService, documentQueryApplicationService, projectQueryApplicationService, documentStoragePort
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
         );
 
         R<Void> result = controller.delete(66L);
 
         assertEquals(R.SUCCESS, result.getCode());
         verify(documentApplicationService).delete(66L);
+    }
+
+    @Test
+    void shouldCreateViewerTicketThroughApplicationService() {
+        DocDocumentRecordController controller = new DocDocumentRecordController(
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
+        );
+        DocViewerTicketVo ticketVo = new DocViewerTicketVo();
+        ticketVo.setTicket("opaque-ticket");
+        ticketVo.setDocumentId(7L);
+        when(documentViewerApplicationService.createViewerTicket(7L)).thenReturn(ticketVo);
+
+        R<DocViewerTicketVo> result = controller.createViewerTicket(7L);
+
+        assertEquals(R.SUCCESS, result.getCode());
+        assertEquals(ticketVo, result.getData());
+        verify(documentViewerApplicationService).createViewerTicket(7L);
     }
 }

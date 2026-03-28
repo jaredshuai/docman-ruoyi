@@ -283,3 +283,7 @@ docman:
     document-reminder-pending-days: 3
     reminder-advance-days: 3
     max-reminder-count: 5
+  viewer:
+    enabled: true
+    ticket-ttl-seconds: 300
+    base-url: http://localhost:8012
