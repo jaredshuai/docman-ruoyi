@@ -5,15 +5,11 @@ import lombok.Data;
 import java.time.Instant;
 
 @Data
-public class DocViewerTicketVo {
+public class DocViewerUrlVo {
 
-    private String ticket;
+    private String url;
 
-    private Long documentId;
-
-    private Long projectId;
-
-    private Long userId;
+    private String src;
 
     private String mode;
 

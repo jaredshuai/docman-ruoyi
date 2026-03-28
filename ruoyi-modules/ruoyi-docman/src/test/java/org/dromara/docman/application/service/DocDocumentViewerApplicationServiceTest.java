@@ -6,6 +6,7 @@ import org.dromara.docman.config.DocmanViewerConfig;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.vo.DocViewerTicketVo;
+import org.dromara.docman.domain.vo.DocViewerUrlVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.dromara.docman.service.IDocProjectAccessService;
 import org.junit.jupiter.api.Tag;
@@ -18,7 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
@@ -39,6 +42,9 @@ class DocDocumentViewerApplicationServiceTest {
     @Mock
     private IDocProjectAccessService projectAccessService;
 
+    @Mock
+    private DocDocumentApplicationService documentApplicationService;
+
     @Test
     void shouldCreateOpaqueViewerTicketForAuthorizedUser() {
         DocmanViewerConfig config = new DocmanViewerConfig();
@@ -47,7 +53,7 @@ class DocDocumentViewerApplicationServiceTest {
         AtomicReference<String> storedKey = new AtomicReference<>();
         AtomicReference<DocDocumentViewerApplicationService.StoredViewerTicket> storedTicket = new AtomicReference<>();
         DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
-            documentRecordService, projectAccessService, config,
+            documentRecordService, projectAccessService, config, documentApplicationService,
             (key, ticket) -> {
                 storedKey.set(key);
                 storedTicket.set(ticket);
@@ -71,6 +77,8 @@ class DocDocumentViewerApplicationServiceTest {
             assertEquals(22L, result.getProjectId());
             assertEquals(33L, result.getUserId());
             assertEquals("preview", result.getMode());
+            assertNull(result.getSaveUrl());
+            assertNull(result.getSaveToken());
             assertNotNull(result.getExpireAt());
             assertTrue(result.getExpireAt().isAfter(java.time.Instant.now()));
             verify(projectAccessService).assertAction(22L, DocProjectAction.VIEW_DOCUMENT);
@@ -87,7 +95,7 @@ class DocDocumentViewerApplicationServiceTest {
         config.setEnabled(false);
         config.setTicketTtlSeconds(300);
         DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
-            documentRecordService, projectAccessService, config
+            documentRecordService, projectAccessService, config, documentApplicationService
         );
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.createViewerTicket(10L));
@@ -102,7 +110,7 @@ class DocDocumentViewerApplicationServiceTest {
         config.setEnabled(true);
         config.setTicketTtlSeconds(300);
         DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
-            documentRecordService, projectAccessService, config, (key, ticket) -> {
+            documentRecordService, projectAccessService, config, documentApplicationService, (key, ticket) -> {
                 throw new AssertionError("viewer ticket should not be stored");
             }
         );
@@ -120,5 +128,102 @@ class DocDocumentViewerApplicationServiceTest {
 
             assertEquals("无权访问该项目文档", ex.getMessage());
         }
+    }
+
+    @Test
+    void shouldBuildViewerUrlWithEncodedSrcAndReservedPreviewFields() {
+        DocmanViewerConfig config = new DocmanViewerConfig();
+        config.setEnabled(true);
+        config.setBaseUrl("https://viewer.example.com/");
+        config.setTicketTtlSeconds(300);
+        DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
+            documentRecordService, projectAccessService, config, documentApplicationService,
+            (key, ticket) -> {
+            }
+        );
+        DocDocumentRecord record = new DocDocumentRecord();
+        record.setId(101L);
+        record.setProjectId(202L);
+        when(documentRecordService.queryEntityById(101L)).thenReturn(record);
+        doNothing().when(projectAccessService).assertAction(202L, DocProjectAction.VIEW_DOCUMENT);
+
+        try (MockedStatic<LoginHelper> loginHelper = mockStatic(LoginHelper.class)) {
+            loginHelper.when(LoginHelper::getUserId).thenReturn(303L);
+
+            DocViewerUrlVo result = service.getViewerUrl(101L);
+
+            assertEquals("preview", result.getMode());
+            assertNull(result.getSaveUrl());
+            assertNull(result.getSaveToken());
+            assertTrue(result.getSrc().startsWith("/docman/document/viewer/content/"));
+            assertTrue(result.getUrl().startsWith("https://viewer.example.com/?src="));
+            assertTrue(result.getUrl().contains("%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2F")
+                || result.getUrl().contains("/docman/document/viewer/content/"));
+            assertTrue(result.getUrl().contains("&mode=preview"));
+            assertNotNull(result.getExpireAt());
+        }
+    }
+
+    @Test
+    void shouldLoadViewerContentMoreThanOnceWithinTtl() {
+        DocmanViewerConfig config = new DocmanViewerConfig();
+        config.setEnabled(true);
+        config.setTicketTtlSeconds(300);
+        DocViewerTicketVo payload = new DocViewerTicketVo();
+        payload.setTicket("opaque");
+        payload.setDocumentId(501L);
+        payload.setProjectId(601L);
+        payload.setUserId(701L);
+        payload.setMode("preview");
+        payload.setExpireAt(java.time.Instant.now().plusSeconds(300));
+        DocDocumentViewerApplicationService.StoredViewerTicket storedTicket =
+            new DocDocumentViewerApplicationService.StoredViewerTicket(payload, 300L);
+        DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
+            documentRecordService, projectAccessService, config, documentApplicationService,
+            (key, ticket) -> {
+            },
+            key -> storedTicket
+        );
+        DocDocumentRecord record = new DocDocumentRecord();
+        record.setId(501L);
+        record.setProjectId(601L);
+        record.setFileName("demo.docx");
+        when(documentRecordService.queryEntityById(501L)).thenReturn(record);
+        when(documentApplicationService.loadDocumentContent(record)).thenReturn("doc-content".getBytes());
+        when(documentApplicationService.resolveFileName(record)).thenReturn("demo.docx");
+        when(documentApplicationService.resolveContentType(record))
+            .thenReturn("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+        DocDocumentViewerApplicationService.ViewerContentPayload first = service.loadViewerContent("opaque");
+        DocDocumentViewerApplicationService.ViewerContentPayload second = service.loadViewerContent("opaque");
+
+        assertEquals("demo.docx", first.fileName());
+        assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document", first.contentType());
+        assertArrayEquals("doc-content".getBytes(), first.content());
+        assertArrayEquals(first.content(), second.content());
+        verify(projectAccessService, org.mockito.Mockito.times(2)).assertAction(601L, DocProjectAction.VIEW_DOCUMENT);
+    }
+
+    @Test
+    void shouldRejectExpiredViewerTicketWhenLoadingContent() {
+        DocmanViewerConfig config = new DocmanViewerConfig();
+        config.setEnabled(true);
+        config.setTicketTtlSeconds(300);
+        DocViewerTicketVo payload = new DocViewerTicketVo();
+        payload.setTicket("expired");
+        payload.setDocumentId(801L);
+        payload.setProjectId(901L);
+        payload.setExpireAt(java.time.Instant.now().minusSeconds(1));
+        DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
+            documentRecordService, projectAccessService, config, documentApplicationService,
+            (key, ticket) -> {
+            },
+            key -> new DocDocumentViewerApplicationService.StoredViewerTicket(payload, 300L)
+        );
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.loadViewerContent("expired"));
+
+        assertEquals("文档预览票据无效或已过期", ex.getMessage());
+        verifyNoInteractions(documentApplicationService, documentRecordService, projectAccessService);
     }
 }

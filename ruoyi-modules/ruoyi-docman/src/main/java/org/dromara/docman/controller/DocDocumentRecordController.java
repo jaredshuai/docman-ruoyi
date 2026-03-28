@@ -21,6 +21,8 @@ import org.dromara.docman.domain.enums.DocDocumentSourceType;
 import org.dromara.docman.domain.vo.DocProjectVo;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.domain.vo.DocViewerTicketVo;
+import org.dromara.docman.domain.vo.DocViewerUrlVo;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -70,6 +72,27 @@ public class DocDocumentRecordController extends BaseController {
     @PostMapping("/{id}/viewer-ticket")
     public R<DocViewerTicketVo> createViewerTicket(@PathVariable Long id) {
         return R.ok(documentViewerApplicationService.createViewerTicket(id));
+    }
+
+    @SaCheckPermission("docman:document:query")
+    @GetMapping("/{id}/viewer-url")
+    public R<DocViewerUrlVo> getViewerUrl(@PathVariable Long id) {
+        return R.ok(documentViewerApplicationService.getViewerUrl(id));
+    }
+
+    @SaCheckPermission("docman:document:query")
+    @GetMapping("/viewer/content/{ticket}")
+    public void viewerContent(@PathVariable String ticket, HttpServletResponse response) {
+        DocDocumentViewerApplicationService.ViewerContentPayload payload = documentViewerApplicationService.loadViewerContent(ticket);
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodeFileName(payload.fileName()));
+        response.setContentType(payload.contentType());
+        response.setContentLengthLong(payload.content().length);
+        try {
+            response.getOutputStream().write(payload.content());
+            response.getOutputStream().flush();
+        } catch (IOException e) {
+            throw new ServiceException("写出预览文件失败");
+        }
     }
 
     @SaCheckPermission("docman:document:upload")
@@ -189,5 +212,10 @@ public class DocDocumentRecordController extends BaseController {
         } catch (IOException e) {
             throw new ServiceException("本地存储文件失败: " + localPath);
         }
+    }
+
+    private static String encodeFileName(String fileName) {
+        return java.net.URLEncoder.encode(fileName, java.nio.charset.StandardCharsets.UTF_8)
+            .replace("+", "%20");
     }
 }

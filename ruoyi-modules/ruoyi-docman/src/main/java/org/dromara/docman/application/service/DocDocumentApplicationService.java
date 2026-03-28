@@ -14,6 +14,7 @@ import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +47,7 @@ public class DocDocumentApplicationService implements CommandApplicationService 
 
     public void download(Long id, HttpServletResponse response) {
         DocDocumentRecord record = documentRecordService.queryEntityById(id);
-        byte[] content = loadDocumentContent(record);
+        byte[] content = loadDocumentContentInternal(record);
         FileUtils.setAttachmentResponseHeader(response, resolveFileName(record));
         response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE + "; charset=UTF-8");
         response.setContentLengthLong(content.length);
@@ -68,7 +69,29 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         documentRecordService.markObsoleteByProjectId(projectId);
     }
 
-    private byte[] loadDocumentContent(DocDocumentRecord record) {
+    public byte[] loadDocumentContent(Long id) {
+        return loadDocumentContentInternal(documentRecordService.queryEntityById(id));
+    }
+
+    public byte[] loadDocumentContent(DocDocumentRecord record) {
+        return loadDocumentContentInternal(record);
+    }
+
+    public String resolveFileName(Long id) {
+        return resolveFileName(documentRecordService.queryEntityById(id));
+    }
+
+    public String resolveFileName(DocDocumentRecord record) {
+        return resolveFileNameInternal(record);
+    }
+
+    public String resolveContentType(DocDocumentRecord record) {
+        return MediaTypeFactory.getMediaType(resolveFileNameInternal(record))
+            .map(MediaType::toString)
+            .orElse(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+    }
+
+    private byte[] loadDocumentContentInternal(DocDocumentRecord record) {
         String nasPath = record.getNasPath();
         if (nasPath == null || nasPath.isBlank()) {
             throw new ServiceException("文档存储路径为空");
@@ -116,7 +139,7 @@ public class DocDocumentApplicationService implements CommandApplicationService 
         return Paths.get(localRootProp).toAbsolutePath().normalize();
     }
 
-    private String resolveFileName(DocDocumentRecord record) {
+    private String resolveFileNameInternal(DocDocumentRecord record) {
         String fileName = record.getFileName();
         if (fileName != null && !fileName.isBlank()) {
             return fileName;

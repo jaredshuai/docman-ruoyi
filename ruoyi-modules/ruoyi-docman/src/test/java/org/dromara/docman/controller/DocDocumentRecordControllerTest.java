@@ -14,19 +14,23 @@ import org.dromara.docman.domain.enums.DocDocumentSourceType;
 import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.domain.vo.DocProjectVo;
 import org.dromara.docman.domain.vo.DocViewerTicketVo;
+import org.dromara.docman.domain.vo.DocViewerUrlVo;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -232,5 +236,46 @@ class DocDocumentRecordControllerTest {
         assertEquals(R.SUCCESS, result.getCode());
         assertEquals(ticketVo, result.getData());
         verify(documentViewerApplicationService).createViewerTicket(7L);
+    }
+
+    @Test
+    void shouldReturnViewerUrlThroughApplicationService() {
+        DocDocumentRecordController controller = new DocDocumentRecordController(
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
+        );
+        DocViewerUrlVo viewerUrlVo = new DocViewerUrlVo();
+        viewerUrlVo.setUrl("https://viewer.example.com/?src=%2Fdocman%2Fdocument%2Fviewer%2Fcontent%2Fopaque&mode=preview");
+        viewerUrlVo.setSrc("/docman/document/viewer/content/opaque");
+        viewerUrlVo.setMode("preview");
+        when(documentViewerApplicationService.getViewerUrl(9L)).thenReturn(viewerUrlVo);
+
+        R<DocViewerUrlVo> result = controller.getViewerUrl(9L);
+
+        assertEquals(R.SUCCESS, result.getCode());
+        assertEquals(viewerUrlVo, result.getData());
+        verify(documentViewerApplicationService).getViewerUrl(9L);
+    }
+
+    @Test
+    void shouldStreamViewerContentWithSafeHeaders() throws Exception {
+        DocDocumentRecordController controller = new DocDocumentRecordController(
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
+        );
+        byte[] content = "preview-bytes".getBytes(StandardCharsets.UTF_8);
+        when(documentViewerApplicationService.loadViewerContent("opaque-ticket"))
+            .thenReturn(new DocDocumentViewerApplicationService.ViewerContentPayload(
+                "测试 文档.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                content
+            ));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        controller.viewerContent("opaque-ticket", response);
+
+        assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document", response.getContentType());
+        assertEquals(content.length, response.getContentLength());
+        assertArrayEquals(content, response.getContentAsByteArray());
+        assertTrue(response.getHeader("Content-Disposition").startsWith("inline; filename*=UTF-8''"));
+        assertTrue(response.getHeader("Content-Disposition").contains("%E6%B5%8B%E8%AF%95%20%E6%96%87%E6%A1%A3.docx"));
     }
 }

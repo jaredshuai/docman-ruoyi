@@ -9,14 +9,18 @@ import org.dromara.docman.config.DocmanViewerConfig;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.vo.DocViewerTicketVo;
+import org.dromara.docman.domain.vo.DocViewerUrlVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.dromara.docman.service.IDocProjectAccessService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -25,26 +29,42 @@ public class DocDocumentViewerApplicationService {
     static final String VIEWER_TICKET_PREFIX = "docman:viewer:ticket:";
     static final String PREVIEW_MODE = "preview";
     private final BiConsumer<String, StoredViewerTicket> viewerTicketStore;
+    private final Function<String, StoredViewerTicket> viewerTicketLoader;
 
     private final IDocDocumentRecordService documentRecordService;
     private final IDocProjectAccessService projectAccessService;
     private final DocmanViewerConfig viewerConfig;
+    private final DocDocumentApplicationService documentApplicationService;
 
     public DocDocumentViewerApplicationService(IDocDocumentRecordService documentRecordService,
                                                IDocProjectAccessService projectAccessService,
-                                               DocmanViewerConfig viewerConfig) {
-        this(documentRecordService, projectAccessService, viewerConfig,
+                                               DocmanViewerConfig viewerConfig,
+                                               DocDocumentApplicationService documentApplicationService) {
+        this(documentRecordService, projectAccessService, viewerConfig, documentApplicationService,
             (key, ticket) -> RedisUtils.setCacheObject(key, ticket, Duration.ofSeconds(ticket.ttlSeconds())));
     }
 
     DocDocumentViewerApplicationService(IDocDocumentRecordService documentRecordService,
                                         IDocProjectAccessService projectAccessService,
                                         DocmanViewerConfig viewerConfig,
+                                        DocDocumentApplicationService documentApplicationService,
                                         BiConsumer<String, StoredViewerTicket> viewerTicketStore) {
+        this(documentRecordService, projectAccessService, viewerConfig, documentApplicationService,
+            viewerTicketStore, key -> RedisUtils.getCacheObject(key));
+    }
+
+    DocDocumentViewerApplicationService(IDocDocumentRecordService documentRecordService,
+                                        IDocProjectAccessService projectAccessService,
+                                        DocmanViewerConfig viewerConfig,
+                                        DocDocumentApplicationService documentApplicationService,
+                                        BiConsumer<String, StoredViewerTicket> viewerTicketStore,
+                                        Function<String, StoredViewerTicket> viewerTicketLoader) {
         this.documentRecordService = documentRecordService;
         this.projectAccessService = projectAccessService;
         this.viewerConfig = viewerConfig;
+        this.documentApplicationService = documentApplicationService;
         this.viewerTicketStore = viewerTicketStore;
+        this.viewerTicketLoader = viewerTicketLoader;
     }
 
     public DocViewerTicketVo createViewerTicket(Long documentId) {
@@ -62,10 +82,63 @@ public class DocDocumentViewerApplicationService {
         ticketVo.setProjectId(record.getProjectId());
         ticketVo.setUserId(LoginHelper.getUserId());
         ticketVo.setMode(PREVIEW_MODE);
+        ticketVo.setSaveUrl(null);
+        ticketVo.setSaveToken(null);
         ticketVo.setExpireAt(expireAt);
 
         viewerTicketStore.accept(buildTicketKey(ticket), new StoredViewerTicket(ticketVo, ticketTtlSeconds));
         return ticketVo;
+    }
+
+    public DocViewerUrlVo getViewerUrl(Long documentId) {
+        ensureViewerEnabled();
+        if (StrUtil.isBlank(viewerConfig.getBaseUrl())) {
+            throw new ServiceException("文档在线预览服务地址未配置");
+        }
+
+        DocViewerTicketVo ticketVo = createViewerTicket(documentId);
+        String src = UriComponentsBuilder.fromPath("/docman/document/viewer/content/{ticket}")
+            .buildAndExpand(ticketVo.getTicket())
+            .toUriString();
+        String viewerUrl = UriComponentsBuilder.fromUriString(viewerConfig.getBaseUrl())
+            .queryParam("src", src)
+            .queryParam("mode", PREVIEW_MODE)
+            .build(true)
+            .toUriString();
+
+        DocViewerUrlVo urlVo = new DocViewerUrlVo();
+        urlVo.setUrl(viewerUrl);
+        urlVo.setSrc(src);
+        urlVo.setMode(PREVIEW_MODE);
+        urlVo.setSaveUrl(ticketVo.getSaveUrl());
+        urlVo.setSaveToken(ticketVo.getSaveToken());
+        urlVo.setExpireAt(ticketVo.getExpireAt());
+        return urlVo;
+    }
+
+    public ViewerContentPayload loadViewerContent(String ticket) {
+        ensureViewerEnabled();
+        StoredViewerTicket storedTicket = viewerTicketLoader.apply(buildTicketKey(ticket));
+        if (storedTicket == null || storedTicket.payload() == null) {
+            throw new ServiceException("文档预览票据无效或已过期");
+        }
+
+        DocViewerTicketVo payload = storedTicket.payload();
+        if (payload.getExpireAt() == null || Instant.now().isAfter(payload.getExpireAt())) {
+            throw new ServiceException("文档预览票据无效或已过期");
+        }
+
+        DocDocumentRecord record = documentRecordService.queryEntityById(payload.getDocumentId());
+        if (!Objects.equals(payload.getProjectId(), record.getProjectId())) {
+            throw new ServiceException("文档预览票据无效或已过期");
+        }
+        projectAccessService.assertAction(record.getProjectId(), DocProjectAction.VIEW_DOCUMENT);
+        byte[] content = documentApplicationService.loadDocumentContent(record);
+        return new ViewerContentPayload(
+            documentApplicationService.resolveFileName(record),
+            documentApplicationService.resolveContentType(record),
+            content
+        );
     }
 
     public void ensureViewerEnabled() {
@@ -89,5 +162,8 @@ public class DocDocumentViewerApplicationService {
     }
 
     record StoredViewerTicket(DocViewerTicketVo payload, long ttlSeconds) {
+    }
+
+    public record ViewerContentPayload(String fileName, String contentType, byte[] content) {
     }
 }
