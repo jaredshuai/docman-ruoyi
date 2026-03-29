@@ -9,6 +9,9 @@ try {
 } finally {
     Pop-Location
 }
+if (($LASTEXITCODE -ne 0) -or (-not $?)) {
+    throw "Maven packaging failed with exit code $LASTEXITCODE. Aborting backend startup."
+}
 $javaArgs = @(
     '-XX:+UseSerialGC',
     '-XX:-UseCompressedClassPointers',

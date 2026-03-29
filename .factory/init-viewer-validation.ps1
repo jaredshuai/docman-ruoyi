@@ -11,10 +11,13 @@ $sampleFile = "$sampleDir/viewer-validation.txt"
 
 # 本地验证统一要求 docman-redis 使用固定密码，避免 Redisson 在无密码实例上发送 AUTH 失败。
 $redisPassword = 'ruoyi123'
-try {
-  docker exec docman-redis redis-cli -a $redisPassword ping | Out-Null
-} catch {
+docker exec docman-redis redis-cli -a $redisPassword ping | Out-Null
+$redisAuthOk = ($LASTEXITCODE -eq 0) -and $?
+if (-not $redisAuthOk) {
   docker exec docman-redis redis-cli CONFIG SET requirepass $redisPassword | Out-Null
+  if (($LASTEXITCODE -ne 0) -or (-not $?)) {
+    throw 'Failed to normalize docman-redis password to ruoyi123.'
+  }
 }
 
 $baseTableCount = docker exec docman-mysql mysql -uroot -proot -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='ry-vue';"
