@@ -9,6 +9,14 @@ $sampleFile = "$sampleDir/viewer-validation.txt"
 [System.IO.Directory]::CreateDirectory($sampleDir) | Out-Null
 [System.IO.File]::WriteAllText($sampleFile, 'viewer preview validation sample')
 
+# 本地验证统一要求 docman-redis 使用固定密码，避免 Redisson 在无密码实例上发送 AUTH 失败。
+$redisPassword = 'ruoyi123'
+try {
+  docker exec docman-redis redis-cli -a $redisPassword ping | Out-Null
+} catch {
+  docker exec docman-redis redis-cli CONFIG SET requirepass $redisPassword | Out-Null
+}
+
 $baseTableCount = docker exec docman-mysql mysql -uroot -proot -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='ry-vue';"
 if ($baseTableCount -eq '0') {
   docker cp "$repoRoot/script/sql/ry_vue_5.X.sql" "docman-mysql:/tmp/ry_vue_5.X.sql"
