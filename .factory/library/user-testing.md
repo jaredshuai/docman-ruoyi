@@ -20,7 +20,9 @@ Testing surfaces, required tools, and concurrency guidance for this mission.
 - Notes:
   - Initialize validation data with `.factory/init-viewer-validation.ps1`, which imports `script/sql/ry_vue_5.X.sql`, `script/sql/ry_docman.sql`, seeds one minimal docman project/document, and writes a sample local file under `.factory/runtime/docman-upload`
   - Run the backend from source with `local` profile, `server.port=8080`, `captcha.enable=false`, `snail-job.enabled=false`, `spring.boot.admin.client.enabled=false`, `docman.storage.localOnly=true`, and `docman.upload.localRoot=D:/codespace/docman-ruoyi/.factory/runtime/docman-upload`
+  - Start-path success now requires liveness proof, not just a PID: inspect the matching `.factory/runtime/*.health.log` file and ensure it records both the first healthy response and the settle-window confirmation before using the service
   - Use targeted test fixtures and controlled TTL values for expiry checks
+  - For `VAL-VIEWER-ACCESS-002`, stop only the local validation backend and relaunch it with the same startup command plus `-Ddocman.viewer.enabled=false`; keep the viewer and plus-ui runtimes untouched so the disabled-mode check is isolated to the backend process
 
 ### Surface: Frontend docman document list
 - Primary tool: `agent-browser`
@@ -58,5 +60,6 @@ Testing surfaces, required tools, and concurrency guidance for this mission.
 - Existing global `vue-tsc` failures in `D:\codespace\docman-plus-ui` are treated as pre-existing unless the preview-entry change adds a new local regression.
 - On Windows, launch the frontend through the `docman-plus-ui` service in `.factory/services.yaml` for browser validation instead of ad hoc foreground Exec runs.
 - Use the `docman-viewer-placeholder` service in `.factory/services.yaml` only for the browser redirect assertion when the user has not provided a real external viewer.
+- Service stop commands in `.factory/services.yaml` use PowerShell `Get-NetTCPConnection` + `Stop-Process` for the declared ports `8080`, `3101`, and `8012`; prefer those manifest commands over ad hoc `netstat` parsing.
 - External `document` viewer retries the same `src`; validators must treat repeated content fetches within TTL as expected behavior.
 - Preview must never reveal storage internals, even in error payloads or headers.

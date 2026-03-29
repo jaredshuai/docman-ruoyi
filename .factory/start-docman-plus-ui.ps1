@@ -1,11 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = 'D:/codespace/docman-ruoyi'
-$runtimeRoot = "$repoRoot/.factory/runtime"
-$healthLog = "$runtimeRoot/docman-validation-backend.health.log"
-$startupLog = "$runtimeRoot/docman-validation-backend.startup.log"
-$log = "$runtimeRoot/docman-validation-backend.log"
-$err = "$runtimeRoot/docman-validation-backend.err.log"
+$runtimeRoot = 'D:/codespace/docman-ruoyi/.factory/runtime'
+$log = "$runtimeRoot/docman-plus-ui.log"
+$err = "$runtimeRoot/docman-plus-ui.err.log"
+$healthLog = "$runtimeRoot/docman-plus-ui.health.log"
 
 function Wait-HttpReady {
     param(
@@ -61,48 +59,11 @@ function Wait-HttpReady {
 }
 
 [System.IO.Directory]::CreateDirectory($runtimeRoot) | Out-Null
-powershell -NoProfile -ExecutionPolicy Bypass -File "$repoRoot/.factory/init-viewer-validation.ps1"
-if (($LASTEXITCODE -ne 0) -or (-not $?)) {
-    throw "Validation init failed with exit code $LASTEXITCODE."
-}
-
 if (Test-Path $healthLog) {
     Remove-Item $healthLog -Force
 }
-if (Test-Path $startupLog) {
-    Remove-Item $startupLog -Force
-}
-Set-Content -Path $healthLog -Value "[$(Get-Date -Format o)] starting docman-admin validation runtime"
-
-Push-Location $repoRoot
-try {
-    & mvn -pl ruoyi-admin -am -DskipTests package 2>&1 | Tee-Object -FilePath $startupLog
-    $mavenExitCode = $LASTEXITCODE
-} finally {
-    Pop-Location
-}
-if ($mavenExitCode -ne 0) {
-    Add-Content -Path $healthLog -Value "[$(Get-Date -Format o)] Maven packaging failed with exit code $mavenExitCode."
-    throw "Maven packaging failed with exit code $mavenExitCode. Aborting backend startup."
-}
-
-$javaArgs = @(
-    '-XX:+UseSerialGC',
-    '-XX:-UseCompressedClassPointers',
-    '-XX:ThreadStackSize=512',
-    '-Xms256m',
-    '-Xmx512m',
-    '-Dspring.profiles.active=local',
-    '-Dserver.port=8080',
-    '-Dcaptcha.enable=false',
-    '-Dsnail-job.enabled=false',
-    '-Dspring.boot.admin.client.enabled=false',
-    '-Ddocman.storage.localOnly=true',
-    '-Ddocman.upload.localRoot=D:/codespace/docman-ruoyi/.factory/runtime/docman-upload',
-    '-jar',
-    'D:/codespace/docman-ruoyi/ruoyi-admin/target/ruoyi-admin.jar'
-)
-$p = Start-Process -FilePath java.exe -ArgumentList $javaArgs -RedirectStandardOutput $log -RedirectStandardError $err -PassThru
+Set-Content -Path $healthLog -Value "[$(Get-Date -Format o)] starting docman-plus-ui validation runtime"
+$p = Start-Process -FilePath cmd.exe -ArgumentList '/c', 'npm --prefix "D:/codespace/docman-plus-ui" run dev -- --host 127.0.0.1 --port 3101 --strictPort' -RedirectStandardOutput $log -RedirectStandardError $err -PassThru
 Add-Content -Path $healthLog -Value "[$(Get-Date -Format o)] started pid=$($p.Id)"
-Wait-HttpReady -Url 'http://localhost:8080/v3/api-docs' -TimeoutSeconds 120 -SettleSeconds 8 -ServiceName 'docman-admin' -ProcessId $p.Id -HealthLogPath $healthLog -StdoutLogPath $log -StderrLogPath $err
+Wait-HttpReady -Url 'http://localhost:3101' -TimeoutSeconds 90 -SettleSeconds 8 -ServiceName 'docman-plus-ui' -ProcessId $p.Id -HealthLogPath $healthLog -StdoutLogPath $log -StderrLogPath $err
 Write-Output $p.Id
