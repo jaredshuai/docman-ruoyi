@@ -1,0 +1,50 @@
+commands:
+  install: npm --prefix "D:/codespace/docman-plus-ui" install
+  seed-validation-data: powershell -NoProfile -ExecutionPolicy Bypass -File "D:/codespace/docman-ruoyi/.factory/init-viewer-validation.ps1"
+  typecheck: mvn -pl ruoyi-modules/ruoyi-docman -DskipTests test-compile
+  build: npm --prefix "D:/codespace/docman-plus-ui" run build:dev
+  test: mvn -pl ruoyi-modules/ruoyi-docman -DskipTests=false "-Dtest=DocDocumentRecordControllerTest,DocDocumentApplicationServiceTest,*Viewer*Test" test
+  lint: npm --prefix "D:/codespace/docman-plus-ui" run lint:eslint -- src/views/docman/document/index.vue src/api/docman/document.ts src/api/docman/types.ts
+
+services:
+  docman-mysql:
+    start: docker start docman-mysql
+    stop: docker stop docman-mysql
+    healthcheck: docker exec docman-mysql mysqladmin ping -h localhost -proot
+    port: 3307
+    depends_on: []
+
+  docman-redis:
+    start: docker start docman-redis
+    stop: docker stop docman-redis
+    healthcheck: docker exec docman-redis redis-cli ping
+    port: 6380
+    depends_on: []
+
+  docman-snailjob:
+    start: docker start docman-snailjob
+    stop: docker stop docman-snailjob
+    healthcheck: curl -sf http://localhost:18800
+    port: 18800
+    depends_on: [docman-mysql]
+
+  docman-admin:
+    start: powershell -NoProfile -ExecutionPolicy Bypass -File "D:/codespace/docman-ruoyi/.factory/start-docman-validation-backend.ps1"
+    stop: powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }"
+    healthcheck: curl -sf http://localhost:8080/v3/api-docs
+    port: 8080
+    depends_on: [docman-mysql, docman-redis]
+
+  docman-plus-ui:
+    start: powershell -NoProfile -ExecutionPolicy Bypass -File "D:/codespace/docman-ruoyi/.factory/start-docman-plus-ui.ps1"
+    stop: powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3101 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }"
+    healthcheck: curl -sf http://localhost:3101
+    port: 3101
+    depends_on: [docman-admin]
+
+  docman-viewer-placeholder:
+    start: powershell -NoProfile -ExecutionPolicy Bypass -File "D:/codespace/docman-ruoyi/.factory/start-placeholder-viewer.ps1"
+    stop: powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 8012 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }"
+    healthcheck: curl -sf http://localhost:8012
+    port: 8012
+    depends_on: []
