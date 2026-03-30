@@ -1,6 +1,7 @@
 package org.dromara.docman.application.service;
 
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.constant.HttpStatus;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.docman.config.DocmanViewerConfig;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
@@ -109,6 +110,7 @@ class DocDocumentViewerApplicationServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.createViewerTicket(10L));
 
         assertEquals("文档在线预览未启用", ex.getMessage());
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, ex.getCode());
         verifyNoInteractions(documentRecordService, projectAccessService);
     }
 
@@ -242,6 +244,7 @@ class DocDocumentViewerApplicationServiceTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.loadViewerContent("expired"));
 
         assertEquals("文档预览票据无效或已过期", ex.getMessage());
+        assertEquals(HttpStatus.NOT_FOUND, ex.getCode());
         verifyNoInteractions(documentApplicationService, documentRecordService, projectAccessService);
     }
 }

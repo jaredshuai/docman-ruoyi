@@ -1,8 +1,8 @@
 package org.dromara.docman.application.service;
 
 import cn.hutool.core.util.StrUtil;
-import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.constant.HttpStatus;
 import org.dromara.common.redis.utils.RedisUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.docman.config.DocmanViewerConfig;
@@ -12,6 +12,7 @@ import org.dromara.docman.domain.vo.DocViewerTicketVo;
 import org.dromara.docman.domain.vo.DocViewerUrlVo;
 import org.dromara.docman.service.IDocDocumentRecordService;
 import org.dromara.docman.service.IDocProjectAccessService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,7 +27,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 @Service
-@RequiredArgsConstructor
 public class DocDocumentViewerApplicationService {
 
     static final String VIEWER_TICKET_PREFIX = "docman:viewer:ticket:";
@@ -39,6 +39,7 @@ public class DocDocumentViewerApplicationService {
     private final DocmanViewerConfig viewerConfig;
     private final DocDocumentApplicationService documentApplicationService;
 
+    @Autowired
     public DocDocumentViewerApplicationService(IDocDocumentRecordService documentRecordService,
                                                IDocProjectAccessService projectAccessService,
                                                DocmanViewerConfig viewerConfig,
@@ -126,17 +127,17 @@ public class DocDocumentViewerApplicationService {
         ensureViewerEnabled();
         StoredViewerTicket storedTicket = viewerTicketLoader.apply(buildTicketKey(ticket));
         if (storedTicket == null || storedTicket.payload() == null) {
-            throw new ServiceException("文档预览票据无效或已过期");
+            throw invalidViewerTicket();
         }
 
         DocViewerTicketVo payload = storedTicket.payload();
         if (payload.getExpireAt() == null || Instant.now().isAfter(payload.getExpireAt())) {
-            throw new ServiceException("文档预览票据无效或已过期");
+            throw invalidViewerTicket();
         }
 
         DocDocumentRecord record = documentRecordService.queryEntityById(payload.getDocumentId());
         if (!Objects.equals(payload.getProjectId(), record.getProjectId())) {
-            throw new ServiceException("文档预览票据无效或已过期");
+            throw invalidViewerTicket();
         }
         projectAccessService.assertAction(record.getProjectId(), DocProjectAction.VIEW_DOCUMENT);
         byte[] content = documentApplicationService.loadDocumentContent(record);
@@ -149,7 +150,7 @@ public class DocDocumentViewerApplicationService {
 
     public void ensureViewerEnabled() {
         if (!viewerConfig.isEnabled()) {
-            throw new ServiceException("文档在线预览未启用");
+            throw new ServiceException("文档在线预览未启用", HttpStatus.NOT_IMPLEMENTED);
         }
     }
 
@@ -162,9 +163,13 @@ public class DocDocumentViewerApplicationService {
 
     private String buildTicketKey(String ticket) {
         if (StrUtil.isBlank(ticket)) {
-            throw new ServiceException("文档预览票据不能为空");
+            throw invalidViewerTicket();
         }
         return VIEWER_TICKET_PREFIX + ticket;
+    }
+
+    private ServiceException invalidViewerTicket() {
+        return new ServiceException("文档预览票据无效或已过期", HttpStatus.NOT_FOUND);
     }
 
     record StoredViewerTicket(DocViewerTicketVo payload, long ttlSeconds) {
