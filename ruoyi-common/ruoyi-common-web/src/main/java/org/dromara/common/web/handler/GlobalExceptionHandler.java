@@ -17,6 +17,7 @@ import org.dromara.common.json.utils.JsonUtils;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.expression.ExpressionException;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -56,10 +57,13 @@ public class GlobalExceptionHandler {
      * 业务异常
      */
     @ExceptionHandler(ServiceException.class)
-    public R<Void> handleServiceException(ServiceException e, HttpServletRequest request) {
+    public ResponseEntity<R<Void>> handleServiceException(ServiceException e, HttpServletRequest request) {
         log.error(e.getMessage());
         Integer code = e.getCode();
-        return ObjectUtil.isNotNull(code) ? R.fail(code, e.getMessage()) : R.fail(e.getMessage());
+        if (ObjectUtil.isNotNull(code)) {
+            return ResponseEntity.status(code).body(R.fail(code, e.getMessage()));
+        }
+        return ResponseEntity.internalServerError().body(R.fail(e.getMessage()));
     }
 
     /**

@@ -4,6 +4,8 @@ import org.dromara.common.core.domain.R;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.satoken.handler.SaTokenExceptionHandler;
+import org.dromara.common.web.handler.GlobalExceptionHandler;
 import org.dromara.docman.application.port.out.DocumentStoragePort;
 import org.dromara.docman.application.service.DocDocumentApplicationService;
 import org.dromara.docman.application.service.DocDocumentQueryApplicationService;
@@ -21,8 +23,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -37,6 +42,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 @Tag("dev")
@@ -58,6 +67,15 @@ class DocDocumentRecordControllerTest {
 
     @Mock
     private DocumentStoragePort documentStoragePort;
+
+    private MockMvc buildMockMvc() {
+        DocDocumentRecordController controller = new DocDocumentRecordController(
+            documentApplicationService, documentQueryApplicationService, documentViewerApplicationService, projectQueryApplicationService, documentStoragePort
+        );
+        return MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new GlobalExceptionHandler(), new SaTokenExceptionHandler())
+            .build();
+    }
 
     @Test
     void shouldDelegateDocumentListQuery() {
@@ -293,4 +311,56 @@ class DocDocumentRecordControllerTest {
         assertEquals("文档内容读取失败", ex.getMessage());
         assertTrue(!ex.getMessage().contains("/"));
     }
+
+    @Test
+    void shouldReturnHttp200WithBytesAndHeadersFromViewerContentEndpoint() throws Exception {
+        byte[] content = "preview-bytes".getBytes(StandardCharsets.UTF_8);
+        when(documentViewerApplicationService.loadViewerContent("opaque-ticket"))
+            .thenReturn(new DocDocumentViewerApplicationService.ViewerContentPayload(
+                "测试 文档.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                content
+            ));
+
+        buildMockMvc().perform(get("/docman/document/viewer/content/{ticket}", "opaque-ticket"))
+            .andExpect(status().isOk())
+            .andExpect(content().bytes(content))
+            .andExpect(header().string("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline; filename*=UTF-8''")))
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("%E6%B5%8B%E8%AF%95%20%E6%96%87%E6%A1%A3.docx")));
+    }
+
+    @Test
+    void shouldReturnHttp501WhenViewerContentDisabled() throws Exception {
+        when(documentViewerApplicationService.loadViewerContent("disabled-ticket"))
+            .thenThrow(new ServiceException("文档在线预览未启用", 501));
+
+        buildMockMvc().perform(get("/docman/document/viewer/content/{ticket}", "disabled-ticket"))
+            .andExpect(status().isNotImplemented())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(content().json("{\"code\":501,\"msg\":\"文档在线预览未启用\"}"));
+    }
+
+    @Test
+    void shouldReturnHttp404WhenViewerTicketUnknown() throws Exception {
+        when(documentViewerApplicationService.loadViewerContent("missing-ticket"))
+            .thenThrow(new ServiceException("文档预览票据无效或已过期", 404));
+
+        buildMockMvc().perform(get("/docman/document/viewer/content/{ticket}", "missing-ticket"))
+            .andExpect(status().isNotFound())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(content().json("{\"code\":404,\"msg\":\"文档预览票据无效或已过期\"}"));
+    }
+
+    @Test
+    void shouldReturnHttp404WhenViewerTicketExpired() throws Exception {
+        when(documentViewerApplicationService.loadViewerContent("expired-ticket"))
+            .thenThrow(new ServiceException("文档预览票据无效或已过期", 404));
+
+        buildMockMvc().perform(get("/docman/document/viewer/content/{ticket}", "expired-ticket"))
+            .andExpect(status().isNotFound())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(content().json("{\"code\":404,\"msg\":\"文档预览票据无效或已过期\"}"));
+    }
+
 }

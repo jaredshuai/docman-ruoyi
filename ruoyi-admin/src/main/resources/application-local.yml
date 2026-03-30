@@ -15,9 +15,13 @@ spring.data:
     host: localhost
     port: 6380
     database: 0
-    password:
+    password: ruoyi123
     timeout: 10s
     ssl.enabled: false
+
+snail-job:
+  # 本地验证默认关闭 SnailJob，但 ruoyi-job 示例 Bean 仍会读取该占位符
+  port: 0
 
 docman:
   viewer:

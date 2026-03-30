@@ -1,5 +1,21 @@
 # Docman Viewer 集成说明
 
+## 交付范围
+
+- backend：`viewer-ticket`、`viewer-url`、`viewer/content/{ticket}`
+- frontend：文档页最小“在线预览”入口
+- external viewer：独立服务接入
+- validation：本地联调与验收闭环
+
+## 用户现在可以做什么
+
+- 点击“在线预览”
+- 前端调用 `viewer-url`
+- 跳转 external viewer
+- external viewer 通过 backend absolute `src` 读取文档内容
+- 在 TTL 内重复读取同一预览内容
+- 在 disabled / unknown / expired 场景下收到符合契约的拒绝响应
+
 ## 已实现
 
 - 后端已提供 `viewer-ticket`、`viewer-url`、`viewer/content/{ticket}` 预览链路。
@@ -46,6 +62,12 @@ docman:
 - 可使用 `local` profile 加载 `ruoyi-admin/src/main/resources/application-local.yml`。
 - 该示例已将 MySQL/Redis 指向本地 compose 端口，并保留 viewer 三个关键配置项。
 
+### 本地验证端口
+
+- backend：`8080`
+- plus-ui：`3101`
+- external viewer：`8012`
+
 ## 前端联动
 
 - sibling 前端仓库 `D:/codespace/docman-plus-ui` 已按最小范围接入现有文档列表页。
@@ -64,9 +86,15 @@ docman:
 ## 预览限制
 
 - 仅支持 `preview` 模式。
+- `mode=edit`、`saveUrl`、`saveToken` 仅预留，未实现业务回写。
 - 票据过期后需要重新请求 `viewer-url` 或 `viewer-ticket`。
 - 当前已实现的是“外部 viewer + backend 绝对 src”预览模式，不表示支持同源静态代理、OSS 直链或免鉴权公开访问。
 - 未实现编辑回写、保存回调、编辑锁或版本冲突处理。
+
+## 非阻塞环境现象
+
+- 若 `plus-ui` 已有健康实例运行在 `3101`，启动脚本可能提示端口占用。
+- 当前可直接复用已有健康实例，不影响 viewer preview 验收与使用。
 
 ## 下一步扩展建议
 

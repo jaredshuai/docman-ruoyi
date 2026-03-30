@@ -18,10 +18,12 @@ import org.redisson.codec.CompositeCodec;
 import org.redisson.codec.TypedJsonJacksonCodec;
 import org.redisson.spring.starter.RedissonAutoConfigurationCustomizer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -39,6 +41,9 @@ public class RedisConfig {
 
     @Autowired
     private RedissonProperties redissonProperties;
+
+    @Autowired
+    private RedisProperties redisProperties;
 
     @Bean
     public RedissonAutoConfigurationCustomizer redissonCustomizer() {
@@ -71,7 +76,7 @@ public class RedisConfig {
             RedissonProperties.SingleServerConfig singleServerConfig = redissonProperties.getSingleServerConfig();
             if (ObjectUtil.isNotNull(singleServerConfig)) {
                 // 使用单机模式
-                config.useSingleServer()
+                var singleConfig = config.useSingleServer()
                     //设置redis key前缀
                     .setNameMapper(new KeyPrefixHandler(redissonProperties.getKeyPrefix()))
                     .setTimeout(singleServerConfig.getTimeout())
@@ -80,11 +85,16 @@ public class RedisConfig {
                     .setSubscriptionConnectionPoolSize(singleServerConfig.getSubscriptionConnectionPoolSize())
                     .setConnectionMinimumIdleSize(singleServerConfig.getConnectionMinimumIdleSize())
                     .setConnectionPoolSize(singleServerConfig.getConnectionPoolSize());
+                if (StringUtils.hasText(redisProperties.getPassword())) {
+                    singleConfig.setPassword(redisProperties.getPassword());
+                } else {
+                    singleConfig.setPassword(null);
+                }
             }
             // 集群配置方式 参考下方注释
             RedissonProperties.ClusterServersConfig clusterServersConfig = redissonProperties.getClusterServersConfig();
             if (ObjectUtil.isNotNull(clusterServersConfig)) {
-                config.useClusterServers()
+                var clusterConfig = config.useClusterServers()
                     //设置redis key前缀
                     .setNameMapper(new KeyPrefixHandler(redissonProperties.getKeyPrefix()))
                     .setTimeout(clusterServersConfig.getTimeout())
@@ -97,6 +107,11 @@ public class RedisConfig {
                     .setSlaveConnectionPoolSize(clusterServersConfig.getSlaveConnectionPoolSize())
                     .setReadMode(clusterServersConfig.getReadMode())
                     .setSubscriptionMode(clusterServersConfig.getSubscriptionMode());
+                if (StringUtils.hasText(redisProperties.getPassword())) {
+                    clusterConfig.setPassword(redisProperties.getPassword());
+                } else {
+                    clusterConfig.setPassword(null);
+                }
             }
             log.info("初始化 redis 配置");
         };
