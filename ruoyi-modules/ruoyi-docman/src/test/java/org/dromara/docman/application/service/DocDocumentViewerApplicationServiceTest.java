@@ -24,6 +24,7 @@ import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.net.URLDecoder;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,7 +61,7 @@ class DocDocumentViewerApplicationServiceTest {
         config.setEnabled(true);
         config.setTicketTtlSeconds(300);
         AtomicReference<String> storedKey = new AtomicReference<>();
-        AtomicReference<DocDocumentViewerApplicationService.StoredViewerTicket> storedTicket = new AtomicReference<>();
+        AtomicReference<DocDocumentViewerApplicationService.ViewerTicketCachePayload> storedTicket = new AtomicReference<>();
         DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
             documentRecordService, projectAccessService, config, documentApplicationService,
             (key, ticket) -> {
@@ -94,7 +95,12 @@ class DocDocumentViewerApplicationServiceTest {
             assertEquals("docman:viewer:ticket:" + result.getTicket(), storedKey.get());
             assertNotNull(storedTicket.get());
             assertEquals(300L, storedTicket.get().ttlSeconds());
-            assertEquals(result, storedTicket.get().payload());
+            assertEquals(result.getDocumentId(), storedTicket.get().documentId());
+            assertEquals(result.getProjectId(), storedTicket.get().projectId());
+            assertEquals(result.getUserId(), storedTicket.get().userId());
+            assertEquals(result.getMode(), storedTicket.get().mode());
+            assertEquals(300L, storedTicket.get().ttlSeconds());
+            assertEquals(result.getExpireAt().getEpochSecond(), storedTicket.get().expireAtEpochSecond());
         }
     }
 
@@ -196,8 +202,8 @@ class DocDocumentViewerApplicationServiceTest {
         payload.setUserId(701L);
         payload.setMode("preview");
         payload.setExpireAt(java.time.Instant.now().plusSeconds(300));
-        DocDocumentViewerApplicationService.StoredViewerTicket storedTicket =
-            new DocDocumentViewerApplicationService.StoredViewerTicket(payload, 300L);
+        DocDocumentViewerApplicationService.ViewerTicketCachePayload storedTicket =
+            DocDocumentViewerApplicationService.ViewerTicketCachePayload.from(payload, 300L);
         DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
             documentRecordService, projectAccessService, config, documentApplicationService,
             (key, ticket) -> {
@@ -221,7 +227,7 @@ class DocDocumentViewerApplicationServiceTest {
         assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document", first.contentType());
         assertArrayEquals("doc-content".getBytes(), first.content());
         assertArrayEquals(first.content(), second.content());
-        verify(projectAccessService, org.mockito.Mockito.times(2)).assertAction(601L, DocProjectAction.VIEW_DOCUMENT);
+        verifyNoInteractions(projectAccessService);
     }
 
     @Test
@@ -238,7 +244,7 @@ class DocDocumentViewerApplicationServiceTest {
             documentRecordService, projectAccessService, config, documentApplicationService,
             (key, ticket) -> {
             },
-            key -> new DocDocumentViewerApplicationService.StoredViewerTicket(payload, 300L)
+            key -> DocDocumentViewerApplicationService.ViewerTicketCachePayload.from(payload, 300L)
         );
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.loadViewerContent("expired"));
@@ -246,5 +252,40 @@ class DocDocumentViewerApplicationServiceTest {
         assertEquals("文档预览票据无效或已过期", ex.getMessage());
         assertEquals(HttpStatus.NOT_FOUND, ex.getCode());
         verifyNoInteractions(documentApplicationService, documentRecordService, projectAccessService);
+    }
+
+    @Test
+    void shouldLoadViewerContentFromMapBackedRedisPayloadWithoutLoginContext() {
+        DocmanViewerConfig config = new DocmanViewerConfig();
+        config.setEnabled(true);
+        config.setTicketTtlSeconds(300);
+        DocDocumentViewerApplicationService service = new DocDocumentViewerApplicationService(
+            documentRecordService, projectAccessService, config, documentApplicationService,
+            (key, ticket) -> {
+            },
+            key -> DocDocumentViewerApplicationService.deserializeViewerTicket(Map.of(
+                "documentId", 901L,
+                "projectId", 902L,
+                "userId", 903L,
+                "mode", "preview",
+                "expireAtEpochSecond", java.time.Instant.now().plusSeconds(120).getEpochSecond(),
+                "ttlSeconds", 300L
+            ))
+        );
+        DocDocumentRecord record = new DocDocumentRecord();
+        record.setId(901L);
+        record.setProjectId(902L);
+        record.setFileName("viewer.pdf");
+        when(documentRecordService.queryEntityById(901L)).thenReturn(record);
+        when(documentApplicationService.loadDocumentContent(record)).thenReturn("viewer-bytes".getBytes(StandardCharsets.UTF_8));
+        when(documentApplicationService.resolveFileName(record)).thenReturn("viewer.pdf");
+        when(documentApplicationService.resolveContentType(record)).thenReturn("application/pdf");
+
+        DocDocumentViewerApplicationService.ViewerContentPayload payload = service.loadViewerContent("opaque");
+
+        assertEquals("viewer.pdf", payload.fileName());
+        assertEquals("application/pdf", payload.contentType());
+        assertArrayEquals("viewer-bytes".getBytes(StandardCharsets.UTF_8), payload.content());
+        verifyNoInteractions(projectAccessService);
     }
 }

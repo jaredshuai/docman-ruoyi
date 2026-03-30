@@ -1,6 +1,7 @@
 package org.dromara.docman.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaIgnore;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +25,9 @@ import org.dromara.docman.domain.vo.DocViewerTicketVo;
 import org.dromara.docman.domain.vo.DocViewerUrlVo;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -80,7 +83,7 @@ public class DocDocumentRecordController extends BaseController {
         return R.ok(documentViewerApplicationService.getViewerUrl(id));
     }
 
-    @SaCheckPermission("docman:document:query")
+    @SaIgnore
     @GetMapping("/viewer/content/{ticket}")
     public void viewerContent(@PathVariable String ticket, HttpServletResponse response) {
         DocDocumentViewerApplicationService.ViewerContentPayload payload = documentViewerApplicationService.loadViewerContent(ticket);
@@ -93,6 +96,15 @@ public class DocDocumentRecordController extends BaseController {
         } catch (IOException e) {
             throw new ServiceException("写出预览文件失败");
         }
+    }
+
+    @ExceptionHandler(ServiceException.class)
+    public ResponseEntity<R<Void>> handleViewerContentException(ServiceException e) {
+        Integer code = e.getCode();
+        if (code != null) {
+            return ResponseEntity.status(code).body(R.fail(code, e.getMessage()));
+        }
+        return ResponseEntity.internalServerError().body(R.fail(e.getMessage()));
     }
 
     @SaCheckPermission("docman:document:upload")

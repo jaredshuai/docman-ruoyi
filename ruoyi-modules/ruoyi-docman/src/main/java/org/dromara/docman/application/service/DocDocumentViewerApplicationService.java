@@ -4,7 +4,6 @@ import cn.hutool.core.util.StrUtil;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.constant.HttpStatus;
 import org.dromara.common.redis.utils.RedisUtils;
-import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.docman.config.DocmanViewerConfig;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.enums.DocProjectAction;
@@ -21,6 +20,8 @@ import org.springframework.web.util.UriUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -31,8 +32,8 @@ public class DocDocumentViewerApplicationService {
 
     static final String VIEWER_TICKET_PREFIX = "docman:viewer:ticket:";
     static final String PREVIEW_MODE = "preview";
-    private final BiConsumer<String, StoredViewerTicket> viewerTicketStore;
-    private final Function<String, StoredViewerTicket> viewerTicketLoader;
+    private final BiConsumer<String, ViewerTicketCachePayload> viewerTicketStore;
+    private final Function<String, ViewerTicketCachePayload> viewerTicketLoader;
 
     private final IDocDocumentRecordService documentRecordService;
     private final IDocProjectAccessService projectAccessService;
@@ -45,24 +46,25 @@ public class DocDocumentViewerApplicationService {
                                                DocmanViewerConfig viewerConfig,
                                                DocDocumentApplicationService documentApplicationService) {
         this(documentRecordService, projectAccessService, viewerConfig, documentApplicationService,
-            (key, ticket) -> RedisUtils.setCacheObject(key, ticket, Duration.ofSeconds(ticket.ttlSeconds())));
+            (key, ticket) -> RedisUtils.setCacheObject(key, ticket.toRedisPayload(), Duration.ofSeconds(ticket.ttlSeconds())),
+            key -> deserializeViewerTicket(RedisUtils.getCacheObject(key)));
     }
 
     DocDocumentViewerApplicationService(IDocDocumentRecordService documentRecordService,
                                         IDocProjectAccessService projectAccessService,
                                         DocmanViewerConfig viewerConfig,
                                         DocDocumentApplicationService documentApplicationService,
-                                        BiConsumer<String, StoredViewerTicket> viewerTicketStore) {
-        this(documentRecordService, projectAccessService, viewerConfig, documentApplicationService,
-            viewerTicketStore, key -> RedisUtils.getCacheObject(key));
+                                        BiConsumer<String, ViewerTicketCachePayload> viewerTicketStore) {
+        this(documentRecordService, projectAccessService, viewerConfig, documentApplicationService, viewerTicketStore,
+            key -> deserializeViewerTicket(RedisUtils.getCacheObject(key)));
     }
 
     DocDocumentViewerApplicationService(IDocDocumentRecordService documentRecordService,
                                         IDocProjectAccessService projectAccessService,
                                         DocmanViewerConfig viewerConfig,
                                         DocDocumentApplicationService documentApplicationService,
-                                        BiConsumer<String, StoredViewerTicket> viewerTicketStore,
-                                        Function<String, StoredViewerTicket> viewerTicketLoader) {
+                                        BiConsumer<String, ViewerTicketCachePayload> viewerTicketStore,
+                                        Function<String, ViewerTicketCachePayload> viewerTicketLoader) {
         this.documentRecordService = documentRecordService;
         this.projectAccessService = projectAccessService;
         this.viewerConfig = viewerConfig;
@@ -84,13 +86,13 @@ public class DocDocumentViewerApplicationService {
         ticketVo.setTicket(ticket);
         ticketVo.setDocumentId(record.getId());
         ticketVo.setProjectId(record.getProjectId());
-        ticketVo.setUserId(LoginHelper.getUserId());
+        ticketVo.setUserId(resolveCurrentUserId());
         ticketVo.setMode(PREVIEW_MODE);
         ticketVo.setSaveUrl(null);
         ticketVo.setSaveToken(null);
         ticketVo.setExpireAt(expireAt);
 
-        viewerTicketStore.accept(buildTicketKey(ticket), new StoredViewerTicket(ticketVo, ticketTtlSeconds));
+        viewerTicketStore.accept(buildTicketKey(ticket), ViewerTicketCachePayload.from(ticketVo, ticketTtlSeconds));
         return ticketVo;
     }
 
@@ -125,12 +127,11 @@ public class DocDocumentViewerApplicationService {
 
     public ViewerContentPayload loadViewerContent(String ticket) {
         ensureViewerEnabled();
-        StoredViewerTicket storedTicket = viewerTicketLoader.apply(buildTicketKey(ticket));
-        if (storedTicket == null || storedTicket.payload() == null) {
+        ViewerTicketCachePayload storedTicket = viewerTicketLoader.apply(buildTicketKey(ticket));
+        if (storedTicket == null) {
             throw invalidViewerTicket();
         }
-
-        DocViewerTicketVo payload = storedTicket.payload();
+        DocViewerTicketVo payload = storedTicket.toTicketVo();
         if (payload.getExpireAt() == null || Instant.now().isAfter(payload.getExpireAt())) {
             throw invalidViewerTicket();
         }
@@ -139,7 +140,6 @@ public class DocDocumentViewerApplicationService {
         if (!Objects.equals(payload.getProjectId(), record.getProjectId())) {
             throw invalidViewerTicket();
         }
-        projectAccessService.assertAction(record.getProjectId(), DocProjectAction.VIEW_DOCUMENT);
         byte[] content = documentApplicationService.loadDocumentContent(record);
         return new ViewerContentPayload(
             documentApplicationService.resolveFileName(record),
@@ -172,9 +172,92 @@ public class DocDocumentViewerApplicationService {
         return new ServiceException("文档预览票据无效或已过期", HttpStatus.NOT_FOUND);
     }
 
-    record StoredViewerTicket(DocViewerTicketVo payload, long ttlSeconds) {
+    static ViewerTicketCachePayload deserializeViewerTicket(Object rawPayload) {
+        if (rawPayload == null) {
+            return null;
+        }
+        if (rawPayload instanceof ViewerTicketCachePayload payload) {
+            return payload;
+        }
+        if (rawPayload instanceof Map<?, ?> map) {
+            return ViewerTicketCachePayload.fromMap(map);
+        }
+        return null;
+    }
+
+    record ViewerTicketCachePayload(Long documentId, Long projectId, Long userId, String mode,
+                                    Long expireAtEpochSecond, Long ttlSeconds) {
+
+        static ViewerTicketCachePayload from(DocViewerTicketVo ticketVo, long ttlSeconds) {
+            return new ViewerTicketCachePayload(
+                ticketVo.getDocumentId(),
+                ticketVo.getProjectId(),
+                ticketVo.getUserId(),
+                ticketVo.getMode(),
+                ticketVo.getExpireAt() == null ? null : ticketVo.getExpireAt().getEpochSecond(),
+                ttlSeconds
+            );
+        }
+
+        Map<String, Object> toRedisPayload() {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("documentId", documentId);
+            payload.put("projectId", projectId);
+            payload.put("userId", userId);
+            payload.put("mode", mode);
+            payload.put("expireAtEpochSecond", expireAtEpochSecond);
+            payload.put("ttlSeconds", ttlSeconds);
+            return payload;
+        }
+
+        static ViewerTicketCachePayload fromMap(Map<?, ?> map) {
+            return new ViewerTicketCachePayload(
+                asLong(map.get("documentId")),
+                asLong(map.get("projectId")),
+                asLong(map.get("userId")),
+                map.get("mode") == null ? null : String.valueOf(map.get("mode")),
+                asLong(map.get("expireAtEpochSecond")),
+                asLong(map.get("ttlSeconds"))
+            );
+        }
+
+        DocViewerTicketVo toTicketVo() {
+            DocViewerTicketVo ticketVo = new DocViewerTicketVo();
+            ticketVo.setDocumentId(documentId);
+            ticketVo.setProjectId(projectId);
+            ticketVo.setUserId(userId);
+            ticketVo.setMode(mode);
+            ticketVo.setExpireAt(expireAtEpochSecond == null ? null : Instant.ofEpochSecond(expireAtEpochSecond));
+            return ticketVo;
+        }
+
+        private static Long asLong(Object value) {
+            if (value == null) {
+                return null;
+            }
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            return Long.parseLong(String.valueOf(value));
+        }
     }
 
     public record ViewerContentPayload(String fileName, String contentType, byte[] content) {
+    }
+
+    private Long resolveCurrentUserId() {
+        try {
+            Class<?> loginHelperClass = Class.forName("org.dromara.common.satoken.utils.LoginHelper");
+            Object userId = loginHelperClass.getMethod("getUserId").invoke(null);
+            if (userId instanceof Long longValue) {
+                return longValue;
+            }
+            if (userId instanceof Number number) {
+                return number.longValue();
+            }
+            return userId == null ? null : Long.parseLong(String.valueOf(userId));
+        } catch (ReflectiveOperationException e) {
+            throw new ServiceException("无法获取当前登录用户");
+        }
     }
 }
