@@ -37,12 +37,14 @@ jobs:
             echo "DEPLOY_ENV=release" >> "$GITHUB_ENV"
             echo "COMPOSE_PROJECT=docman-release" >> "$GITHUB_ENV"
             echo "ADMIN_HOST_PORT=18081" >> "$GITHUB_ENV"
+            echo "MONITOR_HOST_PORT=19090" >> "$GITHUB_ENV"
             echo "SNAIL_UI_HOST_PORT=18800" >> "$GITHUB_ENV"
             echo "MYSQL_HOST=${{ secrets.DOCMAN_MYSQL_HOST_RELEASE }}" >> "$GITHUB_ENV"
           else
             echo "DEPLOY_ENV=dev" >> "$GITHUB_ENV"
             echo "COMPOSE_PROJECT=docman-dev" >> "$GITHUB_ENV"
             echo "ADMIN_HOST_PORT=28081" >> "$GITHUB_ENV"
+            echo "MONITOR_HOST_PORT=29090" >> "$GITHUB_ENV"
             echo "SNAIL_UI_HOST_PORT=28800" >> "$GITHUB_ENV"
             echo "MYSQL_HOST=${{ secrets.DOCMAN_MYSQL_HOST_DEV }}" >> "$GITHUB_ENV"
           fi
@@ -60,7 +62,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mvn -B -pl ruoyi-admin,ruoyi-extend/ruoyi-snailjob-server -am -Pprod -DskipTests package
+          mvn -B -pl ruoyi-admin,ruoyi-extend/ruoyi-snailjob-server,ruoyi-extend/ruoyi-monitor-admin -am -Pprod -DskipTests package
 
       - name: Build runtime images
         shell: bash
@@ -68,26 +70,43 @@ jobs:
           set -euo pipefail
           docker build -t "docman-admin:${DEPLOY_ENV}" -f ruoyi-admin/Dockerfile ruoyi-admin
           docker build -t "docman-snailjob:${DEPLOY_ENV}" -f ruoyi-extend/ruoyi-snailjob-server/Dockerfile ruoyi-extend/ruoyi-snailjob-server
+          docker build -t "docman-monitor-admin:${DEPLOY_ENV}" -f ruoyi-extend/ruoyi-monitor-admin/Dockerfile ruoyi-extend/ruoyi-monitor-admin
 
       - name: Write compose file
         shell: bash
         run: |
           set -euo pipefail
           BASE_DIR="/srv/docman/${DEPLOY_ENV}"
-          sudo mkdir -p "${BASE_DIR}/backend" "${BASE_DIR}/storage" "${BASE_DIR}/logs/admin" "${BASE_DIR}/logs/snailjob"
+          sudo mkdir -p "${BASE_DIR}/backend" "${BASE_DIR}/storage" "${BASE_DIR}/logs/admin" "${BASE_DIR}/logs/snailjob" "${BASE_DIR}/logs/monitor-admin"
           sudo chown -R ubuntu:ubuntu "${BASE_DIR}"
 
           sudo tee "${BASE_DIR}/backend/docker-compose.yml" >/dev/null <<EOF
           name: docman-${DEPLOY_ENV}
           services:
-            snailjob:
-              image: docman-snailjob:${DEPLOY_ENV}
-              container_name: docman-snailjob-${DEPLOY_ENV}
+            monitor-admin:
+              image: docman-monitor-admin:${DEPLOY_ENV}
+              container_name: docman-monitor-admin-${DEPLOY_ENV}
               restart: unless-stopped
               environment:
                 TZ: Asia/Shanghai
                 SPRING_PROFILES_ACTIVE: prod
-                MONITOR_ADMIN_ENABLED: "false"
+                SPRING_BOOT_ADMIN_CLIENT_ENABLED: "false"
+              ports:
+                - "${MONITOR_HOST_PORT}:9090"
+              volumes:
+                - ${BASE_DIR}/logs/monitor-admin:/ruoyi/monitor/logs
+
+            snailjob:
+              image: docman-snailjob:${DEPLOY_ENV}
+              container_name: docman-snailjob-${DEPLOY_ENV}
+              restart: unless-stopped
+              depends_on:
+                - monitor-admin
+              environment:
+                TZ: Asia/Shanghai
+                SPRING_PROFILES_ACTIVE: prod
+                MONITOR_ADMIN_ENABLED: "true"
+                MONITOR_ADMIN_URL: http://monitor-admin:9090/admin
                 SNAILJOB_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/${MYSQL_DB_NAME}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
                 SNAILJOB_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
                 SNAILJOB_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
@@ -101,6 +120,7 @@ jobs:
               container_name: docman-admin-${DEPLOY_ENV}
               restart: unless-stopped
               depends_on:
+                - monitor-admin
                 - snailjob
               environment:
                 TZ: Asia/Shanghai
@@ -108,7 +128,8 @@ jobs:
                 SERVER_PORT: "8080"
                 CAPTCHA_ENABLE: "false"
                 API_DECRYPT_ENABLED: "false"
-                MONITOR_ADMIN_ENABLED: "false"
+                MONITOR_ADMIN_ENABLED: "true"
+                MONITOR_ADMIN_URL: http://monitor-admin:9090/admin
                 DOCMAN_DB_URL: jdbc:mysql://${MYSQL_HOST}:${{ secrets.DOCMAN_MYSQL_PORT }}/${MYSQL_DB_NAME}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
                 DOCMAN_DB_USERNAME: ${{ secrets.DOCMAN_MYSQL_USER }}
                 DOCMAN_DB_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
@@ -160,6 +181,8 @@ jobs:
           echo "Health check failed after ${MAX_RETRIES} attempts"
           echo "--- Admin container logs ---"
           docker logs "docman-admin-${DEPLOY_ENV}" --tail 100 2>&1 || true
+          echo "--- Monitor Admin container logs ---"
+          docker logs "docman-monitor-admin-${DEPLOY_ENV}" --tail 100 2>&1 || true
           echo "--- SnailJob container logs ---"
           docker logs "docman-snailjob-${DEPLOY_ENV}" --tail 50 2>&1 || true
           exit 1
