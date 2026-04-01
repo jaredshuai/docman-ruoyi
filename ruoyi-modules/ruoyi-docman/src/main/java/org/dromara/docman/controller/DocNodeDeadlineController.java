@@ -32,12 +32,24 @@ public class DocNodeDeadlineController extends BaseController {
     private final DocNodeDeadlineQueryApplicationService nodeDeadlineQueryApplicationService;
     private final DocNodeDeadlineApplicationService nodeDeadlineApplicationService;
 
+    /**
+     * 查询项目下所有节点截止日期配置。
+     *
+     * @param projectId 项目ID
+     * @return 节点截止日期列表
+     */
     @SaCheckPermission("docman:nodedeadline:query")
     @GetMapping("/list")
     public R<List<DocNodeDeadlineVo>> list(@RequestParam Long projectId) {
         return R.ok(nodeDeadlineQueryApplicationService.listByProject(projectId));
     }
 
+    /**
+     * 更新节点截止日期配置。
+     *
+     * @param bo 节点截止日期变更参数
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:nodedeadline:edit")
     @Log(title = "节点截止日期修改", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -46,6 +58,12 @@ public class DocNodeDeadlineController extends BaseController {
         return R.ok();
     }
 
+    /**
+     * 查询流程定义下的节点及其时限配置。
+     *
+     * @param definitionId 流程定义ID
+     * @return 节点时限列表
+     */
     @SaCheckPermission("docman:nodedeadline:query")
     @GetMapping("/nodes")
     public R<List<FlowNodeDurationVo>> listNodes(@RequestParam Long definitionId) {
@@ -61,6 +79,12 @@ public class DocNodeDeadlineController extends BaseController {
         return R.ok(voList);
     }
 
+    /**
+     * 直接更新 Warm-Flow 节点扩展中的持续天数字段。
+     *
+     * @param bo 节点时限参数
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:nodedeadline:edit")
     @Log(title = "节点时限修改", businessType = BusinessType.UPDATE)
     @PutMapping("/node-duration")
@@ -77,6 +101,12 @@ public class DocNodeDeadlineController extends BaseController {
         return R.ok();
     }
 
+    /**
+     * 从节点扩展配置中解析持续天数。
+     *
+     * @param nodeExt 节点扩展JSON
+     * @return 持续天数
+     */
     private int resolveDurationDays(String nodeExt) {
         if (StrUtil.isBlank(nodeExt)) return 0;
         try {

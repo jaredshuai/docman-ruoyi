@@ -14,10 +14,23 @@ public class DocDocumentQueryApplicationService implements QueryApplicationServi
 
     private final IDocDocumentRecordService documentRecordService;
 
+    /**
+     * 分页查询项目文档。
+     *
+     * @param projectId 项目ID
+     * @param pageQuery 分页参数
+     * @return 文档分页结果
+     */
     public TableDataInfo<DocDocumentRecordVo> list(Long projectId, PageQuery pageQuery) {
         return documentRecordService.queryPageList(projectId, pageQuery);
     }
 
+    /**
+     * 查询单个文档详情。
+     *
+     * @param id 文档记录ID
+     * @return 文档详情
+     */
     public DocDocumentRecordVo getById(Long id) {
         return documentRecordService.queryById(id);
     }

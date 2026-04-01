@@ -12,11 +12,23 @@ public class DocProjectMemberApplicationService implements CommandApplicationSer
 
     private final IDocProjectMemberService projectMemberService;
 
+    /**
+     * 向项目添加成员。
+     *
+     * @param projectId 项目ID
+     * @param bo        成员参数
+     */
     public void add(Long projectId, DocProjectMemberBo bo) {
         bo.setProjectId(projectId);
         projectMemberService.addMember(bo);
     }
 
+    /**
+     * 从项目中移除成员。
+     *
+     * @param projectId 项目ID
+     * @param userId    用户ID
+     */
     public void remove(Long projectId, Long userId) {
         projectMemberService.removeMember(projectId, userId);
     }

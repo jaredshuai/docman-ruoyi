@@ -22,6 +22,12 @@ public class DocArchiveController extends BaseController {
 
     private final DocArchiveApplicationService archiveApplicationService;
 
+    /**
+     * 为指定项目创建新的归档包。
+     *
+     * @param projectId 项目ID
+     * @return 归档结果
+     */
     @SaCheckPermission("docman:archive:execute")
     @Log(title = "项目归档", businessType = BusinessType.UPDATE)
     @PostMapping("/{projectId}")
@@ -29,18 +35,36 @@ public class DocArchiveController extends BaseController {
         return R.ok(archiveApplicationService.archive(projectId));
     }
 
+    /**
+     * 查询项目最近一次归档结果。
+     *
+     * @param projectId 项目ID
+     * @return 最新归档包
+     */
     @SaCheckPermission("docman:archive:query")
     @GetMapping("/{projectId}")
     public R<DocArchivePackageVo> getArchive(@PathVariable Long projectId) {
         return R.ok(archiveApplicationService.getLatest(projectId));
     }
 
+    /**
+     * 查询项目历史归档记录。
+     *
+     * @param projectId 项目ID
+     * @return 归档历史列表
+     */
     @SaCheckPermission("docman:archive:query")
     @GetMapping("/history/{projectId}")
     public R<List<DocArchivePackageVo>> getArchiveHistory(@PathVariable Long projectId) {
         return R.ok(archiveApplicationService.listHistory(projectId));
     }
 
+    /**
+     * 下载指定归档包。
+     *
+     * @param archiveId 归档包ID
+     * @param response  HTTP响应
+     */
     @SaCheckPermission("docman:archive:download")
     @GetMapping("/{archiveId}/download")
     public void download(@PathVariable Long archiveId, HttpServletResponse response) {

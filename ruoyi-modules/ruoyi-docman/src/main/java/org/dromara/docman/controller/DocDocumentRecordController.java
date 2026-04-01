@@ -53,36 +53,73 @@ public class DocDocumentRecordController extends BaseController {
     private final DocProjectQueryApplicationService projectQueryApplicationService;
     private final DocumentStoragePort documentStoragePort;
 
+    /**
+     * 分页查询项目下的文档记录。
+     *
+     * @param projectId 项目ID
+     * @param pageQuery 分页参数
+     * @return 文档分页结果
+     */
     @SaCheckPermission("docman:document:list")
     @GetMapping("/list")
     public TableDataInfo<DocDocumentRecordVo> list(@RequestParam Long projectId, PageQuery pageQuery) {
         return documentQueryApplicationService.list(projectId, pageQuery);
     }
 
+    /**
+     * 查询单个文档详情。
+     *
+     * @param id 文档记录ID
+     * @return 文档详情
+     */
     @SaCheckPermission("docman:document:query")
     @GetMapping("/{id}")
     public R<DocDocumentRecordVo> getInfo(@PathVariable Long id) {
         return R.ok(documentQueryApplicationService.getById(id));
     }
 
+    /**
+     * 下载文档原始内容。
+     *
+     * @param id       文档记录ID
+     * @param response HTTP响应
+     */
     @SaCheckPermission("docman:document:download")
     @GetMapping("/{id}/download")
     public void download(@PathVariable Long id, HttpServletResponse response) {
         documentApplicationService.download(id, response);
     }
 
+    /**
+     * 为文档创建在线预览票据。
+     *
+     * @param id 文档记录ID
+     * @return 预览票据
+     */
     @SaCheckPermission("docman:document:query")
     @PostMapping("/{id}/viewer-ticket")
     public R<DocViewerTicketVo> createViewerTicket(@PathVariable Long id) {
         return R.ok(documentViewerApplicationService.createViewerTicket(id));
     }
 
+    /**
+     * 生成文档在线预览地址。
+     *
+     * @param id 文档记录ID
+     * @return 预览地址
+     */
     @SaCheckPermission("docman:document:query")
     @GetMapping("/{id}/viewer-url")
     public R<DocViewerUrlVo> getViewerUrl(@PathVariable Long id) {
         return R.ok(documentViewerApplicationService.getViewerUrl(id));
     }
 
+    /**
+     * 基于票据读取在线预览内容。
+     *
+     * @param ticket   预览票据
+     * @param response HTTP响应
+     */
     @SaIgnore
     @GetMapping("/viewer/content/{ticket}")
     public void viewerContent(@PathVariable String ticket, HttpServletResponse response) {
@@ -98,6 +135,12 @@ public class DocDocumentRecordController extends BaseController {
         }
     }
 
+    /**
+     * 统一处理预览内容读取期间抛出的业务异常。
+     *
+     * @param e 业务异常
+     * @return 标准化错误响应
+     */
     @ExceptionHandler(ServiceException.class)
     public ResponseEntity<R<Void>> handleViewerContentException(ServiceException e) {
         Integer code = e.getCode();
@@ -107,6 +150,13 @@ public class DocDocumentRecordController extends BaseController {
         return ResponseEntity.internalServerError().body(R.fail(e.getMessage()));
     }
 
+    /**
+     * 上传文档并登记为项目文档记录。
+     *
+     * @param file      上传文件
+     * @param projectId 项目ID
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:document:upload")
     @Log(title = "文档上传", businessType = BusinessType.INSERT)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -174,6 +224,12 @@ public class DocDocumentRecordController extends BaseController {
         return R.ok();
     }
 
+    /**
+     * 删除指定文档记录。
+     *
+     * @param id 文档记录ID
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:document:delete")
     @Log(title = "文档删除", businessType = BusinessType.DELETE)
     @DeleteMapping("/{id}")

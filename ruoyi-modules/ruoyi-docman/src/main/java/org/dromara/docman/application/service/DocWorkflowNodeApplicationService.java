@@ -101,6 +101,12 @@ public class DocWorkflowNodeApplicationService {
         handleWorkflowCompleted(event);
     }
 
+    /**
+     * 在运行中的流程实例上手动触发指定节点的插件。
+     *
+     * @param config   流程配置
+     * @param nodeCode 节点编码，为空时触发定义下全部节点
+     */
     public void triggerPlugins(DocProcessConfig config, String nodeCode) {
         DocProjectVo project = projectService.queryById(config.getProjectId());
         if (project == null) {

@@ -17,14 +17,33 @@ public class DocProjectQueryApplicationService implements QueryApplicationServic
 
     private final IDocProjectService projectService;
 
+    /**
+     * 分页查询项目列表。
+     *
+     * @param bo        筛选参数
+     * @param pageQuery 分页参数
+     * @return 项目分页结果
+     */
     public TableDataInfo<DocProjectVo> list(DocProjectBo bo, PageQuery pageQuery) {
         return projectService.queryPageList(bo, pageQuery);
     }
 
+    /**
+     * 查询当前用户项目列表。
+     *
+     * @param bo 筛选参数
+     * @return 当前用户项目
+     */
     public List<DocProjectVo> listMy(DocProjectBo bo) {
         return projectService.queryMyList(bo);
     }
 
+    /**
+     * 查询项目详情。
+     *
+     * @param id 项目ID
+     * @return 项目详情
+     */
     public DocProjectVo getById(Long id) {
         return projectService.queryById(id);
     }

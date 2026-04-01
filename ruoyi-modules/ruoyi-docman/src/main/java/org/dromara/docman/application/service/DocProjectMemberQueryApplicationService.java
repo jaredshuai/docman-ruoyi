@@ -16,6 +16,12 @@ public class DocProjectMemberQueryApplicationService implements QueryApplication
     private final IDocProjectMemberService projectMemberService;
     private final DocProjectMemberAssembler projectMemberAssembler;
 
+    /**
+     * 查询项目成员列表。
+     *
+     * @param projectId 项目ID
+     * @return 成员列表
+     */
     public List<DocProjectMemberVo> list(Long projectId) {
         return projectMemberAssembler.toVoList(projectMemberService.listByProjectId(projectId));
     }

@@ -73,6 +73,12 @@ public class DocDocumentViewerApplicationService {
         this.viewerTicketLoader = viewerTicketLoader;
     }
 
+    /**
+     * 为文档创建在线预览票据并写入缓存。
+     *
+     * @param documentId 文档记录ID
+     * @return 预览票据
+     */
     public DocViewerTicketVo createViewerTicket(Long documentId) {
         ensureViewerEnabled();
         DocDocumentRecord record = documentRecordService.queryEntityById(documentId);
@@ -96,6 +102,12 @@ public class DocDocumentViewerApplicationService {
         return ticketVo;
     }
 
+    /**
+     * 生成在线预览URL。
+     *
+     * @param documentId 文档记录ID
+     * @return 预览地址VO
+     */
     public DocViewerUrlVo getViewerUrl(Long documentId) {
         ensureViewerEnabled();
         if (StrUtil.isBlank(viewerConfig.getBaseUrl())) {
@@ -125,6 +137,12 @@ public class DocDocumentViewerApplicationService {
         return urlVo;
     }
 
+    /**
+     * 基于票据读取在线预览内容。
+     *
+     * @param ticket 预览票据
+     * @return 预览内容载荷
+     */
     public ViewerContentPayload loadViewerContent(String ticket) {
         ensureViewerEnabled();
         ViewerTicketCachePayload storedTicket = viewerTicketLoader.apply(buildTicketKey(ticket));
@@ -148,6 +166,9 @@ public class DocDocumentViewerApplicationService {
         );
     }
 
+    /**
+     * 校验在线预览能力是否启用。
+     */
     public void ensureViewerEnabled() {
         if (!viewerConfig.isEnabled()) {
             throw new ServiceException("文档在线预览未启用", HttpStatus.NOT_IMPLEMENTED);

@@ -27,19 +27,43 @@ public class DocArchiveApplicationService implements CommandApplicationService {
     private final IDocArchiveService archiveService;
     private final DocArchiveAssembler archiveAssembler;
 
+    /**
+     * 发起项目归档并返回归档结果。
+     *
+     * @param projectId 项目ID
+     * @return 归档结果
+     */
     public DocArchivePackageVo archive(Long projectId) {
         DocArchivePackage archivePackage = archiveService.archiveProject(projectId);
         return archiveAssembler.toVo(archivePackage);
     }
 
+    /**
+     * 查询项目最近一次归档。
+     *
+     * @param projectId 项目ID
+     * @return 最新归档
+     */
     public DocArchivePackageVo getLatest(Long projectId) {
         return archiveAssembler.toVo(archiveService.getByProjectId(projectId));
     }
 
+    /**
+     * 查询项目归档历史。
+     *
+     * @param projectId 项目ID
+     * @return 历史归档列表
+     */
     public List<DocArchivePackageVo> listHistory(Long projectId) {
         return archiveAssembler.toVoList(archiveService.listByProjectId(projectId));
     }
 
+    /**
+     * 下载指定归档包。
+     *
+     * @param archiveId 归档包ID
+     * @param response  HTTP响应
+     */
     public void downloadArchive(Long archiveId, HttpServletResponse response) {
         DocArchivePackage archivePackage = archiveService.getById(archiveId);
         if (archivePackage == null) {

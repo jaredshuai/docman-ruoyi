@@ -62,6 +62,12 @@ public class DocPluginController extends BaseController {
         return R.ok(pluginApplicationService.getExecutionLogById(id));
     }
 
+    /**
+     * 手动触发指定流程节点上的插件执行。
+     *
+     * @param bo 插件触发参数
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:plugin:trigger")
     @Log(title = "插件手动触发", businessType = BusinessType.OTHER)
     @PostMapping("/execution/trigger")

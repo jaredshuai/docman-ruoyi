@@ -24,12 +24,25 @@ public class DocProjectMemberController extends BaseController {
     private final DocProjectMemberApplicationService projectMemberApplicationService;
     private final DocProjectMemberQueryApplicationService projectMemberQueryApplicationService;
 
+    /**
+     * 查询项目成员列表。
+     *
+     * @param projectId 项目ID
+     * @return 项目成员列表
+     */
     @SaCheckPermission("docman:project:query")
     @GetMapping
     public R<List<DocProjectMemberVo>> list(@PathVariable Long projectId) {
         return R.ok(projectMemberQueryApplicationService.list(projectId));
     }
 
+    /**
+     * 向项目中新增成员。
+     *
+     * @param projectId 项目ID
+     * @param bo        成员参数
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:project:edit")
     @Log(title = "项目成员", businessType = BusinessType.INSERT)
     @PostMapping
@@ -38,6 +51,13 @@ public class DocProjectMemberController extends BaseController {
         return R.ok();
     }
 
+    /**
+     * 从项目中移除指定成员。
+     *
+     * @param projectId 项目ID
+     * @param userId    用户ID
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:project:edit")
     @Log(title = "项目成员", businessType = BusinessType.DELETE)
     @DeleteMapping("/{userId}")

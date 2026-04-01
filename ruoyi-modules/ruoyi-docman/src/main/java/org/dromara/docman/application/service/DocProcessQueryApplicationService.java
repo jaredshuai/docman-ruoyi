@@ -14,6 +14,12 @@ public class DocProcessQueryApplicationService implements QueryApplicationServic
     private final IDocProcessService processService;
     private final DocProcessAssembler processAssembler;
 
+    /**
+     * 查询项目当前绑定的流程配置。
+     *
+     * @param projectId 项目ID
+     * @return 流程配置VO
+     */
     public DocProcessConfigVo getConfig(Long projectId) {
         return processAssembler.toVo(processService.getByProjectId(projectId));
     }

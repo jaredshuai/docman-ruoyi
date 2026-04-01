@@ -12,6 +12,11 @@ public class DocNodeDeadlineApplicationService implements CommandApplicationServ
 
     private final IDocNodeDeadlineService nodeDeadlineService;
 
+    /**
+     * 更新节点截止日期配置。
+     *
+     * @param bo 截止日期变更参数
+     */
     public void update(DocNodeDeadlineBo bo) {
         nodeDeadlineService.updateDeadline(bo);
     }

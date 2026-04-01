@@ -14,6 +14,12 @@ public class DocNodeDeadlineQueryApplicationService implements QueryApplicationS
 
     private final IDocNodeDeadlineService nodeDeadlineService;
 
+    /**
+     * 查询项目下的节点截止日期列表。
+     *
+     * @param projectId 项目ID
+     * @return 节点截止日期列表
+     */
     public List<DocNodeDeadlineVo> listByProject(Long projectId) {
         return nodeDeadlineService.listByProject(projectId);
     }

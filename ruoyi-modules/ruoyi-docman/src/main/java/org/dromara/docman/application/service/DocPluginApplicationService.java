@@ -27,6 +27,11 @@ public class DocPluginApplicationService {
     private final DocWorkflowNodeApplicationService workflowNodeApplicationService;
     private final DocPluginAssembler pluginAssembler;
 
+    /**
+     * 查询当前注册的文档插件列表。
+     *
+     * @return 插件信息列表
+     */
     public List<DocPluginInfoVo> listPlugins() {
         return pluginRegistry.getAllPlugins().values().stream()
             .map(pluginAssembler::toInfoVo)
@@ -49,6 +54,11 @@ public class DocPluginApplicationService {
         return pluginExecutionLogService.queryById(id);
     }
 
+    /**
+     * 手动触发运行中流程实例上的插件。
+     *
+     * @param bo 插件触发参数
+     */
     public void triggerPlugin(DocPluginTriggerBo bo) {
         DocProcessConfig processConfig = processConfigService.queryByInstanceId(bo.getProcessInstanceId());
         if (processConfig == null) {

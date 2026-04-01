@@ -26,24 +26,49 @@ public class DocProjectController extends BaseController {
     private final DocProjectApplicationService projectApplicationService;
     private final DocProjectQueryApplicationService projectQueryApplicationService;
 
+    /**
+     * 分页查询项目列表。
+     *
+     * @param bo        项目筛选条件
+     * @param pageQuery 分页参数
+     * @return 项目分页结果
+     */
     @SaCheckPermission("docman:project:list")
     @GetMapping("/list")
     public TableDataInfo<DocProjectVo> list(DocProjectBo bo, PageQuery pageQuery) {
         return projectQueryApplicationService.list(bo, pageQuery);
     }
 
+    /**
+     * 查询当前用户可见项目列表。
+     *
+     * @param bo 项目筛选条件
+     * @return 当前用户项目列表
+     */
     @SaCheckPermission("docman:project:my")
     @GetMapping("/my")
     public R<List<DocProjectVo>> my(DocProjectBo bo) {
         return R.ok(projectQueryApplicationService.listMy(bo));
     }
 
+    /**
+     * 查询项目详情。
+     *
+     * @param id 项目ID
+     * @return 项目详情
+     */
     @SaCheckPermission("docman:project:query")
     @GetMapping("/{id}")
     public R<DocProjectVo> getInfo(@PathVariable Long id) {
         return R.ok(projectQueryApplicationService.getById(id));
     }
 
+    /**
+     * 创建项目。
+     *
+     * @param bo 项目创建参数
+     * @return 新项目ID
+     */
     @SaCheckPermission("docman:project:add")
     @Log(title = "项目管理", businessType = BusinessType.INSERT)
     @PostMapping
@@ -51,6 +76,12 @@ public class DocProjectController extends BaseController {
         return R.ok(projectApplicationService.create(bo));
     }
 
+    /**
+     * 更新项目信息。
+     *
+     * @param bo 项目更新参数
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:project:edit")
     @Log(title = "项目管理", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -62,6 +93,12 @@ public class DocProjectController extends BaseController {
         return R.ok();
     }
 
+    /**
+     * 删除一个或多个项目。
+     *
+     * @param ids 项目ID列表
+     * @return 执行结果
+     */
     @SaCheckPermission("docman:project:remove")
     @Log(title = "项目管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
