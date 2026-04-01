@@ -23,7 +23,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `doc_project_add_record`;
 CREATE TABLE `doc_project_add_record`  (
   `id` bigint NOT NULL COMMENT '增加工作量记录id',
-  `porject_id` bigint NOT NULL COMMENT '项目id',
+  `project_id` bigint NOT NULL COMMENT '项目id',
   `enable` tinyint NULL DEFAULT NULL COMMENT '是否启用',
   `estimated_price` decimal(20, 5) NULL DEFAULT NULL COMMENT '预估价格',
   `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '备注',
