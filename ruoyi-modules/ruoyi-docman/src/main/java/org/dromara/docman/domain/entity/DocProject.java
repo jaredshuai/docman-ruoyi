@@ -8,6 +8,8 @@ import lombok.EqualsAndHashCode;
 import org.dromara.common.mybatis.core.domain.BaseEntity;
 
 import java.io.Serial;
+import java.math.BigDecimal;
+import java.util.Date;
 
 /**
  * 项目表 doc_project
@@ -26,6 +28,15 @@ public class DocProject extends BaseEntity {
     /** 项目名称 */
     private String name;
 
+    /** 电信编号 */
+    private String dianxinCode;
+
+    /** 翔云编号 */
+    private String xiangyunCode;
+
+    /** 项目金额 */
+    private java.math.BigDecimal price;
+
     /** 客户类型（telecom/social） */
     private String customerType;
 
@@ -38,8 +49,20 @@ public class DocProject extends BaseEntity {
     /** 项目状态（active/archived） */
     private String status;
 
+    /** 客户名称 */
+    private String customerName;
+
     /** 负责人ID */
     private Long ownerId;
+
+    /** 电信立项时间 */
+    private Date dianxinInitiationTime;
+
+    /** 计划开工时间 */
+    private Date startTime;
+
+    /** 计划完工时间 */
+    private Date endTime;
 
     /** 群晖NAS基础路径 */
     private String nasBasePath;

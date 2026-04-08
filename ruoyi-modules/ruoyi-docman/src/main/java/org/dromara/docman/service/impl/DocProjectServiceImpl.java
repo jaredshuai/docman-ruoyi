@@ -236,6 +236,9 @@ public class DocProjectServiceImpl implements IDocProjectService {
     private LambdaQueryWrapper<DocProject> buildQueryWrapper(DocProjectBo bo) {
         LambdaQueryWrapper<DocProject> lqw = Wrappers.lambdaQuery();
         lqw.like(StringUtils.isNotBlank(bo.getName()), DocProject::getName, bo.getName());
+        lqw.like(StringUtils.isNotBlank(bo.getDianxinCode()), DocProject::getDianxinCode, bo.getDianxinCode());
+        lqw.like(StringUtils.isNotBlank(bo.getXiangyunCode()), DocProject::getXiangyunCode, bo.getXiangyunCode());
+        lqw.like(StringUtils.isNotBlank(bo.getCustomerName()), DocProject::getCustomerName, bo.getCustomerName());
         lqw.eq(StringUtils.isNotBlank(bo.getCustomerType()), DocProject::getCustomerType, bo.getCustomerType());
         lqw.eq(StringUtils.isNotBlank(bo.getBusinessType()), DocProject::getBusinessType, bo.getBusinessType());
         lqw.orderByDesc(DocProject::getCreateTime);

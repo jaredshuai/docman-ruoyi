@@ -27,6 +27,15 @@ public class DocProjectVo implements Serializable {
     private Long id;
     private String name;
 
+    /** 电信编号 */
+    private String dianxinCode;
+
+    /** 翔云编号 */
+    private String xiangyunCode;
+
+    /** 项目金额 */
+    private java.math.BigDecimal price;
+
     @ExcelProperty(value = "客户类型", converter = ExcelDictConvert.class)
     @ExcelDictFormat(dictType = "doc_customer_type")
     private String customerType;
@@ -39,10 +48,23 @@ public class DocProjectVo implements Serializable {
     @ExcelProperty(value = "项目状态", converter = ExcelDictConvert.class)
     @ExcelDictFormat(dictType = "doc_project_status")
     private String status;
+    
+    /** 客户名称 */
+    private String customerName;
+    
     private Long ownerId;
 
     @Translation(type = TransConstant.USER_ID_TO_NAME, mapper = "ownerId")
     private String ownerName;
+    
+    /** 电信立项时间 */
+    private Date dianxinInitiationTime;
+    
+    /** 计划开工时间 */
+    private Date startTime;
+    
+    /** 计划完工时间 */
+    private Date endTime;
 
     private String nasBasePath;
     private String nasDirStatus;
