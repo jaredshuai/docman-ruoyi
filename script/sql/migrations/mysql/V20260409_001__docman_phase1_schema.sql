@@ -3,6 +3,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP PROCEDURE IF EXISTS ensure_column;
 DROP PROCEDURE IF EXISTS ensure_index;
+DROP PROCEDURE IF EXISTS ensure_add_record_project_id;
 
 DELIMITER $$
 
@@ -35,6 +36,35 @@ BEGIN
         PREPARE stmt FROM @ddl;
         EXECUTE stmt;
         DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+
+CREATE PROCEDURE ensure_add_record_project_id()
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'doc_project_add_record'
+          AND column_name = 'porject_id'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'doc_project_add_record'
+          AND column_name = 'project_id'
+    ) THEN
+        ALTER TABLE `doc_project_add_record`
+            CHANGE COLUMN `porject_id` `project_id` BIGINT NOT NULL COMMENT '项目id';
+    ELSEIF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'doc_project_add_record'
+          AND column_name = 'project_id'
+    ) THEN
+        ALTER TABLE `doc_project_add_record`
+            ADD COLUMN `project_id` BIGINT NOT NULL COMMENT '项目id' AFTER `id`;
     END IF;
 END$$
 
@@ -100,6 +130,7 @@ CREATE TABLE IF NOT EXISTS `doc_project_add_record` (
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='项目工作量记录表';
 
+CALL ensure_add_record_project_id();
 CALL ensure_index('doc_project_add_record', 'idx_project_add_record_project',
     'ALTER TABLE `doc_project_add_record` ADD INDEX `idx_project_add_record_project` (`project_id`)');
 
@@ -363,5 +394,6 @@ CALL ensure_index('doc_project_balance_adjustment', 'idx_project_balance_adjustm
 
 DROP PROCEDURE IF EXISTS ensure_column;
 DROP PROCEDURE IF EXISTS ensure_index;
+DROP PROCEDURE IF EXISTS ensure_add_record_project_id;
 
 SET FOREIGN_KEY_CHECKS = 1;
