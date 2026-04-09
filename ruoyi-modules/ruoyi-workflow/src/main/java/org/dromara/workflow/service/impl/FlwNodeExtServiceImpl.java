@@ -211,9 +211,24 @@ public class FlwNodeExtServiceImpl implements NodeExtService, IFlwNodeExtService
     @Override
     public NodeExtVo parseNodeExt(String ext, Map<String, Object> variable) {
         NodeExtVo nodeExtVo = new NodeExtVo();
+        if (StringUtils.isBlank(ext)) {
+            return nodeExtVo;
+        }
 
-        // 解析 JSON 为 Dict 列表
-        List<Dict> nodeExtMap = JsonUtils.parseArrayMap(ext);
+        // Docman 在 node.ext 中复用对象型 JSON 挂载插件配置。
+        // workflow 设计器自身只关心数组型权限/抄送/变量配置，因此对对象型扩展直接忽略，
+        // 避免流程启动时因为 JSON 形状不同而中断。
+        if (ext.trim().startsWith("{")) {
+            return nodeExtVo;
+        }
+
+        List<Dict> nodeExtMap;
+        try {
+            nodeExtMap = JsonUtils.parseArrayMap(ext);
+        } catch (RuntimeException ex) {
+            log.warn("解析节点扩展属性失败，已按空扩展处理: {}", ex.getMessage());
+            return nodeExtVo;
+        }
         if (ObjectUtil.isEmpty(nodeExtMap)) {
             return nodeExtVo;
         }

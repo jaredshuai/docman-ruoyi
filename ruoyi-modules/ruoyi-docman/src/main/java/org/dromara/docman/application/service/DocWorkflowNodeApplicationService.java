@@ -31,6 +31,7 @@ import org.dromara.warm.flow.core.entity.Node;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,37 +64,8 @@ public class DocWorkflowNodeApplicationService {
                 if (project == null) {
                     log.warn("未找到项目: projectId={}", config.getProjectId());
                 } else {
-                    DocNodeContext nodeContext = contextService.getOrCreate(event.getInstanceId(), event.getNodeCode(), project.getId());
-                    NodeContextReader reader = contextService.buildReader(event.getInstanceId());
-                    String archiveFolderName = parsedExt.getArchiveFolderName();
-
-                    for (WorkflowNodeFinishedEvent.PluginBinding binding : pluginBindings) {
-                        String pluginId = binding.getPluginId();
-                        Map<String, Object> pluginConfig = binding.getConfig();
-
-                        DocumentPlugin plugin = pluginRegistry.getPlugin(pluginId);
-                        if (plugin == null) {
-                            log.error("插件未注册: {}", pluginId);
-                            continue;
-                        }
-
-                        PluginContext ctx = PluginContext.builder()
-                            .projectId(project.getId())
-                            .projectName(project.getName())
-                            .processInstanceId(event.getInstanceId())
-                            .nodeCode(event.getNodeCode())
-                            .contextReader(reader)
-                            .processWriter((field, value) -> contextService.putProcessVariable(nodeContext.getId(), field, value))
-                            .nodeWriter((field, value) -> contextService.putNodeVariable(nodeContext.getId(), field, value))
-                            .factWriter((field, value) -> contextService.putDocumentFact(nodeContext.getId(), field, value))
-                            .contentWriter((key, text) -> contextService.putUnstructuredContent(nodeContext.getId(), key, text))
-                            .pluginConfig(pluginConfig)
-                            .nasBasePath(project.getNasBasePath())
-                            .archiveFolderName(archiveFolderName)
-                            .build();
-
-                        executePlugin(project.getId(), plugin, ctx);
-                    }
+                    executePluginBindings(project.getId(), project.getName(), event.getInstanceId(), event.getNodeCode(),
+                        project.getNasBasePath(), parsedExt.getArchiveFolderName(), pluginBindings, false);
                 }
             }
         }
@@ -123,34 +95,35 @@ public class DocWorkflowNodeApplicationService {
             if (parsedExt.getPlugins().isEmpty()) {
                 continue;
             }
-
-            DocNodeContext nodeContext = contextService.getOrCreate(config.getInstanceId(), node.getNodeCode(), project.getId());
-            NodeContextReader reader = contextService.buildReader(config.getInstanceId());
-            for (WorkflowNodeFinishedEvent.PluginBinding binding : parsedExt.getPlugins()) {
-                DocumentPlugin plugin = pluginRegistry.getPlugin(binding.getPluginId());
-                if (plugin == null) {
-                    log.error("插件未注册: {}", binding.getPluginId());
-                    continue;
-                }
-
-                PluginContext ctx = PluginContext.builder()
-                    .projectId(project.getId())
-                    .projectName(project.getName())
-                    .processInstanceId(config.getInstanceId())
-                    .nodeCode(node.getNodeCode())
-                    .contextReader(reader)
-                    .processWriter((field, value) -> contextService.putProcessVariable(nodeContext.getId(), field, value))
-                    .nodeWriter((field, value) -> contextService.putNodeVariable(nodeContext.getId(), field, value))
-                    .factWriter((field, value) -> contextService.putDocumentFact(nodeContext.getId(), field, value))
-                    .contentWriter((key, text) -> contextService.putUnstructuredContent(nodeContext.getId(), key, text))
-                    .pluginConfig(binding.getConfig())
-                    .nasBasePath(project.getNasBasePath())
-                    .archiveFolderName(parsedExt.getArchiveFolderName())
-                    .build();
-
-                executePlugin(project.getId(), plugin, ctx);
-            }
+            executePluginBindings(project.getId(), project.getName(), config.getInstanceId(), node.getNodeCode(),
+                project.getNasBasePath(), parsedExt.getArchiveFolderName(), parsedExt.getPlugins(), false);
         }
+    }
+
+    /**
+     * 为项目运行时上下文手动触发一组已绑定插件。
+     *
+     * @param projectId          项目ID
+     * @param projectName        项目名称
+     * @param processInstanceId  运行时实例ID
+     * @param nodeCode           节点编码
+     * @param nasBasePath        项目 NAS 根路径
+     * @param archiveFolderName  归档目录名
+     * @param pluginIds          插件编码列表
+     * @return 每个插件的执行结果
+     */
+    public List<PluginExecutionResult> triggerBoundPlugins(Long projectId, String projectName, Long processInstanceId,
+                                                           String nodeCode, String nasBasePath,
+                                                           String archiveFolderName, List<String> pluginIds) {
+        List<WorkflowNodeFinishedEvent.PluginBinding> bindings = new ArrayList<>(pluginIds.size());
+        for (String pluginId : pluginIds) {
+            WorkflowNodeFinishedEvent.PluginBinding binding = new WorkflowNodeFinishedEvent.PluginBinding();
+            binding.setPluginId(pluginId);
+            binding.setConfig(Map.of());
+            bindings.add(binding);
+        }
+        return executePluginBindings(projectId, projectName, processInstanceId, nodeCode, nasBasePath,
+            archiveFolderName, bindings, true);
     }
 
     private void handleWorkflowCompleted(WorkflowNodeFinishedEvent event) {
@@ -167,22 +140,62 @@ public class DocWorkflowNodeApplicationService {
         log.info("文档流程配置已完成: configId={}, instanceId={}", config.getId(), event.getInstanceId());
     }
 
-    private void executePlugin(Long projectId, DocumentPlugin plugin, PluginContext ctx) {
+    private List<PluginExecutionResult> executePluginBindings(Long projectId, String projectName, Long processInstanceId,
+                                                              String nodeCode, String nasBasePath,
+                                                              String archiveFolderName,
+                                                              List<WorkflowNodeFinishedEvent.PluginBinding> bindings,
+                                                              boolean failOnMissingPlugin) {
+        DocNodeContext nodeContext = contextService.getOrCreate(processInstanceId, nodeCode, projectId);
+        NodeContextReader reader = contextService.buildReader(processInstanceId);
+        List<PluginExecutionResult> results = new ArrayList<>(bindings.size());
+        for (WorkflowNodeFinishedEvent.PluginBinding binding : bindings) {
+            DocumentPlugin plugin = pluginRegistry.getPlugin(binding.getPluginId());
+            if (plugin == null) {
+                if (failOnMissingPlugin) {
+                    throw new ServiceException("插件未注册: " + binding.getPluginId());
+                }
+                log.error("插件未注册: {}", binding.getPluginId());
+                continue;
+            }
+            PluginContext ctx = PluginContext.builder()
+                .projectId(projectId)
+                .projectName(projectName)
+                .processInstanceId(processInstanceId)
+                .nodeCode(nodeCode)
+                .contextReader(reader)
+                .processWriter((field, value) -> contextService.putProcessVariable(nodeContext.getId(), field, value))
+                .nodeWriter((field, value) -> contextService.putNodeVariable(nodeContext.getId(), field, value))
+                .factWriter((field, value) -> contextService.putDocumentFact(nodeContext.getId(), field, value))
+                .contentWriter((key, text) -> contextService.putUnstructuredContent(nodeContext.getId(), key, text))
+                .pluginConfig(binding.getConfig() == null ? Map.of() : new LinkedHashMap<>(binding.getConfig()))
+                .nasBasePath(nasBasePath)
+                .archiveFolderName(archiveFolderName)
+                .build();
+            results.add(executePlugin(projectId, plugin, ctx));
+        }
+        return results;
+    }
+
+    private PluginExecutionResult executePlugin(Long projectId, DocumentPlugin plugin, PluginContext ctx) {
         PluginExecutionResult executionResult = pluginExecutor.execute(
             PluginExecutionRequest.builder().plugin(plugin).context(ctx).build()
         );
         PluginResult result = executionResult.getResult();
         if (!result.isSuccess()) {
             log.error("插件执行失败: {} - {}, cost={}ms", plugin.getPluginId(), result.getErrorMessage(), executionResult.getCostMs());
-            return;
+            return executionResult;
         }
 
         if (result.getGeneratedFiles() != null) {
+            if (!result.getGeneratedFiles().isEmpty()) {
+                documentRecordService.markLatestUniquePluginArtifactsObsolete(projectId, plugin.getPluginId());
+            }
             for (PluginResult.GeneratedFile file : result.getGeneratedFiles()) {
                 documentRecordService.recordPluginGenerated(projectId, plugin.getPluginId(), file);
             }
         }
         log.info("插件执行成功: {}, cost={}ms", plugin.getPluginId(), executionResult.getCostMs());
+        return executionResult;
     }
 
     private List<Node> resolveTriggerNodes(Long definitionId, String nodeCode) {

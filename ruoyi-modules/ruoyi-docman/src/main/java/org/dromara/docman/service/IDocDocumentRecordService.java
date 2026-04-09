@@ -22,6 +22,8 @@ public interface IDocDocumentRecordService {
 
     void recordPluginGenerated(Long projectId, String pluginId, PluginResult.GeneratedFile file);
 
+    void markLatestUniquePluginArtifactsObsolete(Long projectId, String pluginId);
+
     void markObsoleteById(Long id);
 
     void markObsoleteByProjectId(Long projectId);

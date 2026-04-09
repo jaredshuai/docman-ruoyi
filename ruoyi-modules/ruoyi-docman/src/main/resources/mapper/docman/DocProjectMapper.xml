@@ -11,6 +11,7 @@
             p.dianxin_code,
             p.xiangyun_code,
             p.price,
+            p.project_type_code,
             p.customer_type,
             p.business_type,
             p.document_category,

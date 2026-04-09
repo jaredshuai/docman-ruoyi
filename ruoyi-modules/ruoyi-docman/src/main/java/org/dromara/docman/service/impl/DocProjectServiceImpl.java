@@ -108,6 +108,7 @@ public class DocProjectServiceImpl implements IDocProjectService {
     @Transactional(rollbackFor = Exception.class)
     public Long insertProject(DocProjectBo bo) {
         DocProject project = projectAssembler.toEntity(bo);
+        fillDefaultProjectType(project);
         project.setStatus(DocProjectStatus.ACTIVE.getCode());
 
         String basePath = docPathResolver.buildProjectBasePath(project.getCustomerType(), project.getName());
@@ -142,6 +143,7 @@ public class DocProjectServiceImpl implements IDocProjectService {
     public Boolean updateProject(DocProjectBo bo) {
         projectAccessService.assertAction(bo.getId(), DocProjectAction.EDIT_PROJECT);
         DocProject project = projectAssembler.toEntity(bo);
+        fillDefaultProjectType(project);
         return projectMapper.updateById(project) > 0;
     }
 
@@ -239,9 +241,17 @@ public class DocProjectServiceImpl implements IDocProjectService {
         lqw.like(StringUtils.isNotBlank(bo.getDianxinCode()), DocProject::getDianxinCode, bo.getDianxinCode());
         lqw.like(StringUtils.isNotBlank(bo.getXiangyunCode()), DocProject::getXiangyunCode, bo.getXiangyunCode());
         lqw.like(StringUtils.isNotBlank(bo.getCustomerName()), DocProject::getCustomerName, bo.getCustomerName());
+        lqw.eq(StringUtils.isNotBlank(bo.getProjectTypeCode()), DocProject::getProjectTypeCode, bo.getProjectTypeCode());
         lqw.eq(StringUtils.isNotBlank(bo.getCustomerType()), DocProject::getCustomerType, bo.getCustomerType());
         lqw.eq(StringUtils.isNotBlank(bo.getBusinessType()), DocProject::getBusinessType, bo.getBusinessType());
         lqw.orderByDesc(DocProject::getCreateTime);
         return lqw;
+    }
+
+    private void fillDefaultProjectType(DocProject project) {
+        if (StringUtils.isBlank(project.getProjectTypeCode())
+            && StringUtils.equalsIgnoreCase(project.getCustomerType(), "telecom")) {
+            project.setProjectTypeCode("telecom");
+        }
     }
 }

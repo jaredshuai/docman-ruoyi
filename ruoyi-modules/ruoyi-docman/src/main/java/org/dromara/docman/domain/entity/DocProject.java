@@ -37,6 +37,9 @@ public class DocProject extends BaseEntity {
     /** 项目金额 */
     private java.math.BigDecimal price;
 
+    /** 项目类型编码（telecom/social_tongfu_template/social_custom_template） */
+    private String projectTypeCode;
+
     /** 客户类型（telecom/social） */
     private String customerType;
 

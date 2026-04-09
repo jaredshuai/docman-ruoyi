@@ -1,11 +1,9 @@
 package org.dromara.docman.domain.vo;
 
 import cn.idev.excel.annotation.ExcelProperty;
-import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
 import org.dromara.common.excel.annotation.ExcelDictFormat;
 import org.dromara.common.excel.convert.ExcelDictConvert;
-import org.dromara.docman.domain.entity.DocArchivePackage;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -14,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 
 @Data
-@AutoMapper(target = DocArchivePackage.class)
 public class DocArchivePackageVo implements Serializable {
 
     @Serial

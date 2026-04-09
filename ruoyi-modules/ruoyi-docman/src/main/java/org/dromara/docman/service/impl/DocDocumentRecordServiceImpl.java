@@ -80,6 +80,22 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     }
 
     @Override
+    public void markLatestUniquePluginArtifactsObsolete(Long projectId, String pluginId) {
+        if (projectId == null || pluginId == null || pluginId.isBlank()) {
+            return;
+        }
+        baseMapper.selectList(new LambdaQueryWrapper<DocDocumentRecord>()
+                .eq(DocDocumentRecord::getProjectId, projectId)
+                .eq(DocDocumentRecord::getPluginId, pluginId)
+                .in(DocDocumentRecord::getStatus,
+                    DocDocumentStatus.PENDING.getCode(),
+                    DocDocumentStatus.RUNNING.getCode(),
+                    DocDocumentStatus.GENERATED.getCode(),
+                    DocDocumentStatus.FAILED.getCode()))
+            .forEach(this::markObsolete);
+    }
+
+    @Override
     public void markObsoleteById(Long id) {
         DocDocumentRecord record = getRecordOrThrow(id);
         projectAccessService.assertAction(record.getProjectId(), DocProjectAction.EDIT_PROJECT);

@@ -6,6 +6,7 @@
 CREATE TABLE doc_project (
     id              BIGINT       NOT NULL COMMENT '项目ID',
     name            VARCHAR(200) NOT NULL COMMENT '项目名称',
+    project_type_code VARCHAR(64) COMMENT '项目类型编码',
     customer_type   VARCHAR(20)  NOT NULL COMMENT '客户类型（telecom/social）',
     business_type   VARCHAR(20)  NOT NULL COMMENT '业务类型（pipeline/weak_current）',
     document_category VARCHAR(20) NOT NULL COMMENT '文档类别（telecom/internal/customer）',

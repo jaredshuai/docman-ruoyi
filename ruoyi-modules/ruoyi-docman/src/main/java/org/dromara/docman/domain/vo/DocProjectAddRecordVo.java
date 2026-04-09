@@ -1,13 +1,9 @@
 package org.dromara.docman.domain.vo;
 
 import cn.idev.excel.annotation.ExcelProperty;
-import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
 import org.dromara.common.excel.annotation.ExcelDictFormat;
 import org.dromara.common.excel.convert.ExcelDictConvert;
-import org.dromara.common.translation.annotation.Translation;
-import org.dromara.common.translation.constant.TransConstant;
-import org.dromara.docman.domain.entity.DocProjectAddRecord;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -19,7 +15,6 @@ import java.util.List;
  * 项目工作量记录视图对象
  */
 @Data
-@AutoMapper(target = DocProjectAddRecord.class)
 public class DocProjectAddRecordVo implements Serializable {
 
     @Serial

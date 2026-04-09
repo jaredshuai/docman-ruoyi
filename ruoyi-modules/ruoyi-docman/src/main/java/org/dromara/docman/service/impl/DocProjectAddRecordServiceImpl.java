@@ -32,7 +32,7 @@ public class DocProjectAddRecordServiceImpl implements IDocProjectAddRecordServi
 
     @Override
     public DocProjectAddRecordVo queryById(Long id) {
-        DocProjectAddRecordVo vo = addRecordMapper.selectVoById(id);
+        DocProjectAddRecordVo vo = addRecordMapper.selectVoViewById(id);
         if (vo == null) {
             throw new ServiceException("工作量记录不存在");
         }
@@ -73,7 +73,7 @@ public class DocProjectAddRecordServiceImpl implements IDocProjectAddRecordServi
     @Transactional(rollbackFor = Exception.class)
     public void deleteByIds(List<Long> ids) {
         for (Long id : ids) {
-            DocProjectAddRecordVo vo = addRecordMapper.selectVoById(id);
+            DocProjectAddRecordVo vo = addRecordMapper.selectVoViewById(id);
             if (vo != null) {
                 projectAccessService.assertAction(vo.getProjectId(), DocProjectAction.DELETE_PROJECT);
                 detailService.deleteByRecordId(id);

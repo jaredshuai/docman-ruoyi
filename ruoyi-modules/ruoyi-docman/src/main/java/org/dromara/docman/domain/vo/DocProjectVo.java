@@ -36,6 +36,9 @@ public class DocProjectVo implements Serializable {
     /** 项目金额 */
     private java.math.BigDecimal price;
 
+    /** 项目类型编码 */
+    private String projectTypeCode;
+
     @ExcelProperty(value = "客户类型", converter = ExcelDictConvert.class)
     @ExcelDictFormat(dictType = "doc_customer_type")
     private String customerType;

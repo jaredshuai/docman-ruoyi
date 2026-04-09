@@ -31,6 +31,9 @@ public class DocProjectBo {
     /** 项目金额 */
     private BigDecimal price;
 
+    /** 项目类型编码 */
+    private String projectTypeCode;
+
     @NotBlank(message = "客户类型不能为空")
     private String customerType;
 

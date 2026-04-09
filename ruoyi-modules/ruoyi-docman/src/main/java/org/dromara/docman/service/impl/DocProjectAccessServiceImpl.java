@@ -14,7 +14,6 @@ import org.dromara.docman.domain.service.DocProjectPermissionPolicy;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectMemberMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ public class DocProjectAccessServiceImpl implements IDocProjectAccessService {
     private final DocProjectMapper projectMapper;
     private final DocProjectPermissionPolicy permissionPolicy;
 
-    @Cacheable(cacheNames = DocmanCacheNames.USER_ACCESSIBLE_PROJECTS, key = "#userId")
     @Override
     public List<Long> listAccessibleProjectIds(Long userId) {
         if (LoginHelper.isSuperAdmin(userId)) {
@@ -47,7 +45,6 @@ public class DocProjectAccessServiceImpl implements IDocProjectAccessService {
         ).stream().map(DocProjectMember::getProjectId).toList();
     }
 
-    @Cacheable(cacheNames = DocmanCacheNames.USER_PROJECT_ROLE, key = "#projectId + ':' + T(org.dromara.common.satoken.utils.LoginHelper).getUserId()")
     @Override
     public DocProjectRole getCurrentRole(Long projectId) {
         if (LoginHelper.isSuperAdmin()) {

@@ -1,0 +1,66 @@
+package org.dromara.docman.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lombok.RequiredArgsConstructor;
+import org.dromara.common.core.exception.ServiceException;
+import org.dromara.docman.domain.bo.DocTelecomWorkloadItemBo;
+import org.dromara.docman.domain.entity.DocTelecomWorkloadItem;
+import org.dromara.docman.domain.vo.DocTelecomWorkloadItemVo;
+import org.dromara.docman.mapper.DocTelecomWorkloadItemMapper;
+import org.dromara.docman.service.IDocTelecomWorkloadItemService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class DocTelecomWorkloadItemServiceImpl implements IDocTelecomWorkloadItemService {
+
+    private final DocTelecomWorkloadItemMapper workloadItemMapper;
+
+    @Override
+    public List<DocTelecomWorkloadItemVo> listAll() {
+        return workloadItemMapper.selectVoList(new LambdaQueryWrapper<DocTelecomWorkloadItem>()
+            .orderByAsc(DocTelecomWorkloadItem::getSortOrder)
+            .orderByAsc(DocTelecomWorkloadItem::getCreateTime));
+    }
+
+    @Override
+    public DocTelecomWorkloadItemVo queryById(Long id) {
+        DocTelecomWorkloadItemVo vo = workloadItemMapper.selectVoById(id);
+        if (vo == null) {
+            throw new ServiceException("工作量项不存在");
+        }
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long save(DocTelecomWorkloadItemBo bo) {
+        DocTelecomWorkloadItem entity = new DocTelecomWorkloadItem();
+        entity.setId(bo.getId());
+        entity.setItemCode(bo.getItemCode());
+        entity.setItemName(bo.getItemName());
+        entity.setCategory(bo.getCategory());
+        entity.setUnit(bo.getUnit());
+        entity.setDefaultPrice(bo.getDefaultPrice());
+        entity.setDescription(bo.getDescription());
+        entity.setSortOrder(bo.getSortOrder());
+        entity.setStatus((bo.getStatus() == null || bo.getStatus().isBlank()) ? "active" : bo.getStatus());
+        if (bo.getId() == null) {
+            workloadItemMapper.insert(entity);
+        } else {
+            workloadItemMapper.updateById(entity);
+        }
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteByIds(List<Long> ids) {
+        if (ids != null) {
+            ids.forEach(workloadItemMapper::deleteById);
+        }
+    }
+}

@@ -15,4 +15,12 @@ public interface DocProjectAddRecordMapper extends BaseMapperPlus<DocProjectAddR
      * @return 工作量记录列表
      */
     List<DocProjectAddRecordVo> selectVoListByProjectId(Long projectId);
+
+    /**
+     * 查询工作量记录视图详情。
+     *
+     * @param id 工作量记录ID
+     * @return 工作量记录视图
+     */
+    DocProjectAddRecordVo selectVoViewById(Long id);
 }
