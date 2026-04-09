@@ -72,6 +72,28 @@ jobs:
           docker build -t "docman-snailjob:${DEPLOY_ENV}" -f ruoyi-extend/ruoyi-snailjob-server/Dockerfile ruoyi-extend/ruoyi-snailjob-server
           docker build -t "docman-monitor-admin:${DEPLOY_ENV}" -f ruoyi-extend/ruoyi-monitor-admin/Dockerfile ruoyi-extend/ruoyi-monitor-admin
 
+      - name: Install MySQL client if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v mysql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y mysql-client
+          fi
+
+      - name: Apply database migrations
+        shell: bash
+        env:
+          MYSQL_HOST: ${{ env.MYSQL_HOST }}
+          MYSQL_PORT: ${{ secrets.DOCMAN_MYSQL_PORT }}
+          MYSQL_DB_NAME: ${{ env.MYSQL_DB_NAME }}
+          MYSQL_USER: ${{ secrets.DOCMAN_MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.DOCMAN_MYSQL_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x script/deploy/apply_mysql_migrations.sh
+          script/deploy/apply_mysql_migrations.sh
+
       - name: Write compose file
         shell: bash
         run: |
