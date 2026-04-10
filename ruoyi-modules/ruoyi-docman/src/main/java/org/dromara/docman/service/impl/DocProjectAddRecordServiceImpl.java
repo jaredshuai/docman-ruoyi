@@ -27,7 +27,11 @@ public class DocProjectAddRecordServiceImpl implements IDocProjectAddRecordServi
     @Override
     public List<DocProjectAddRecordVo> listByProject(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return addRecordMapper.selectVoListByProjectId(projectId);
+        List<DocProjectAddRecordVo> records = addRecordMapper.selectVoListByProjectId(projectId);
+        for (DocProjectAddRecordVo record : records) {
+            record.setDetails(detailService.listByRecordId(record.getId()));
+        }
+        return records;
     }
 
     @Override
