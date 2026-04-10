@@ -20,6 +20,7 @@ import org.dromara.docman.domain.entity.DocProjectVisa;
 import org.dromara.docman.domain.entity.DocWorkflowNodeTask;
 import org.dromara.docman.domain.entity.DocWorkflowTemplate;
 import org.dromara.docman.domain.entity.DocWorkflowTemplateNode;
+import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.vo.DocProjectEstimateSnapshotVo;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
@@ -53,6 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -243,6 +245,18 @@ class DocProjectWorkspaceServiceImplTest {
     }
 
     @Test
+    void shouldRejectTriggerEstimateBeforeLoadingProjectWhenNoProjectAccess() {
+        Long projectId = 1L;
+        doThrow(new ServiceException("你无权访问该项目"))
+            .when(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerEstimate(projectId));
+
+        assertEquals("你无权访问该项目", ex.getMessage());
+        verify(projectMapper, never()).selectById(projectId);
+    }
+
+    @Test
     void shouldRejectExportWhenEstimateSnapshotMissing() {
         Long projectId = 1L;
         DocProject project = project(projectId);
@@ -265,17 +279,30 @@ class DocProjectWorkspaceServiceImplTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
 
         assertEquals("请先完成初步估算后再导出文本", ex.getMessage());
+        verify(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         verify(workflowNodeApplicationService, never()).triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void shouldTriggerExportWhenAtExportNodeAndEstimateExists() {
+    void shouldRejectTriggerExportBeforeLoadingProjectWhenNoProjectAccess() {
+        Long projectId = 1L;
+        doThrow(new ServiceException("你无权访问该项目"))
+            .when(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
+
+        assertEquals("你无权访问该项目", ex.getMessage());
+        verify(projectMapper, never()).selectById(projectId);
+    }
+
+    @Test
+    void shouldTriggerExportWhenConfiguredPluginBindingChanges() {
         Long projectId = 1L;
         Long runtimeId = 100L;
         DocProject project = project(projectId);
         DocProjectRuntime runtime = runtime(projectId, 10L, "export_text");
         DocWorkflowTemplateNode node = node(10L, "export_text");
-        DocWorkflowNodeTask definition = task("export_run", "plugin_run", true, null, "telecom-export-text-mock");
+        DocWorkflowNodeTask definition = task("export_run", "plugin_run", true, null, "telecom-export-text-v2");
         DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
         taskRuntime.setId(19L);
         taskRuntime.setProjectId(projectId);
@@ -294,7 +321,6 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
         when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(definition, definition);
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime), List.of(taskRuntime));
-        when(taskRuntimeMapper.selectById(19L)).thenReturn(taskRuntime);
         when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(snapshotVo);
         when(nodeContextService.getOrCreate(runtimeId, "export_text", projectId)).thenReturn(nodeContext);
         when(nodeContext.getId()).thenReturn(77L);
@@ -302,7 +328,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
         when(workflowNodeApplicationService.triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(List.of(PluginExecutionResult.builder()
-                .pluginId("telecom-export-text-mock")
+                .pluginId("telecom-export-text-v2")
                 .costMs(12L)
                 .result(PluginResult.ok())
                 .build()));
@@ -314,6 +340,7 @@ class DocProjectWorkspaceServiceImplTest {
 
         verify(workflowNodeApplicationService).triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any());
         verify(taskRuntimeMapper).updateById(taskRuntime);
+        verify(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         assertEquals("completed", taskRuntime.getStatus());
     }
 

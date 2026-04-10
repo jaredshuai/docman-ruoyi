@@ -1,6 +1,7 @@
 package org.dromara.docman.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.dromara.common.core.exception.ServiceException;
@@ -73,12 +74,15 @@ class DocProjectBalanceAdjustmentServiceImplTest {
         bo.setMaterialPrice(new BigDecimal("456"));
         bo.setBalanceRemark("done");
 
-        when(estimateSnapshotMapper.selectCount(any())).thenReturn(1L);
+        ArgumentCaptor<LambdaQueryWrapper<DocProjectEstimateSnapshot>> snapshotWrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        when(estimateSnapshotMapper.selectCount(snapshotWrapperCaptor.capture())).thenReturn(1L);
 
         service.save(bo);
 
         ArgumentCaptor<DocProjectBalanceAdjustment> captor = ArgumentCaptor.forClass(DocProjectBalanceAdjustment.class);
         verify(balanceAdjustmentMapper).insert(captor.capture());
+        verify(estimateSnapshotMapper).selectCount(any(LambdaQueryWrapper.class));
+        verify(projectAccessService).assertAction(2L, DocProjectAction.EDIT_PROJECT);
         assertEquals(2L, captor.getValue().getProjectId());
         assertEquals(new BigDecimal("456"), captor.getValue().getMaterialPrice());
         assertEquals("done", captor.getValue().getBalanceRemark());

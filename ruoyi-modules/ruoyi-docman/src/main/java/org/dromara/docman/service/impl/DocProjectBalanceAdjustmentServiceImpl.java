@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanceAdjustmentService {
 
+    private static final String INITIAL_ESTIMATE_TYPE = "initial_estimate";
+
     private final DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final IDocProjectAccessService projectAccessService;
@@ -54,7 +56,8 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
 
     private void ensureEstimateSnapshotExists(Long projectId) {
         Long count = estimateSnapshotMapper.selectCount(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
-            .eq(DocProjectEstimateSnapshot::getProjectId, projectId));
+            .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
+            .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE));
         if (count == null || count <= 0) {
             throw new ServiceException("请先完成初步估算后再执行平料");
         }
