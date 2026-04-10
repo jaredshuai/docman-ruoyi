@@ -192,6 +192,10 @@ class DocProjectWorkspaceServiceImplTest {
         var workspace = service.getWorkspace(projectId);
 
         assertEquals("completed", workspace.getCurrentNodeTasks().get(0).getStatus());
+        assertEquals(1L, workspace.getDrawingCount());
+        assertEquals(1L, workspace.getIncludedDrawingCount());
+        assertEquals(0L, workspace.getVisaCount());
+        assertEquals(0L, workspace.getIncludedVisaCount());
         assertEquals("completed", taskRuntime.getStatus());
         verify(taskRuntimeMapper).updateById(taskRuntime);
     }

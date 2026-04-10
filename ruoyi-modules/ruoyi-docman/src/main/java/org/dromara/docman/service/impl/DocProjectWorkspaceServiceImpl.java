@@ -101,10 +101,10 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         vo.setRuntimeStatus(runtime.getStatus());
         vo.setNodes(buildNodeVos(nodes));
         vo.setCurrentNodeTasks(buildTaskRuntimeVos(projectId, runtime.getCurrentNodeCode()));
-        vo.setDrawingCount(drawingMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawing>()
-            .eq(DocProjectDrawing::getProjectId, projectId)));
-        vo.setVisaCount(visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>()
-            .eq(DocProjectVisa::getProjectId, projectId)));
+        vo.setDrawingCount(queryDrawingCount(projectId, false));
+        vo.setIncludedDrawingCount(queryDrawingCount(projectId, true));
+        vo.setVisaCount(queryVisaCount(projectId, false));
+        vo.setIncludedVisaCount(queryVisaCount(projectId, true));
         vo.setLatestEstimateSnapshot(queryLatestEstimateSnapshot(projectId));
         vo.setLatestExportArtifact(queryLatestExportArtifact(projectId, runtime.getWorkflowTemplateId()));
         return vo;
@@ -511,6 +511,24 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE)
             .orderByDesc(DocProjectEstimateSnapshot::getCreateTime)
             .last("limit 1"));
+    }
+
+    private Long queryDrawingCount(Long projectId, boolean includedOnly) {
+        LambdaQueryWrapper<DocProjectDrawing> wrapper = new LambdaQueryWrapper<DocProjectDrawing>()
+            .eq(DocProjectDrawing::getProjectId, projectId);
+        if (includedOnly) {
+            wrapper.eq(DocProjectDrawing::getIncludeInProject, true);
+        }
+        return drawingMapper.selectCount(wrapper);
+    }
+
+    private Long queryVisaCount(Long projectId, boolean includedOnly) {
+        LambdaQueryWrapper<DocProjectVisa> wrapper = new LambdaQueryWrapper<DocProjectVisa>()
+            .eq(DocProjectVisa::getProjectId, projectId);
+        if (includedOnly) {
+            wrapper.eq(DocProjectVisa::getIncludeInProject, true);
+        }
+        return visaMapper.selectCount(wrapper);
     }
 
     private void saveLatestEstimateSnapshot(Long projectId, Long runtimeId) {
