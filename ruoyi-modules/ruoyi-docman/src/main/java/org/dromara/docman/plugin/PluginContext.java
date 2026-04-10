@@ -13,6 +13,7 @@ public class PluginContext {
     private Long projectId;
     private String projectName;
     private Long processInstanceId;
+    private Long nodeContextId;
     private String nodeCode;
     private NodeContextReader contextReader;
     private BiConsumer<String, Object> processWriter;

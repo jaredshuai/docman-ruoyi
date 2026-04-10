@@ -182,13 +182,14 @@ class DocDocumentRecordServiceImplTest {
     void recordPluginGenerated_shouldCreateRecordWithPluginSourceType() {
         Long projectId = 100L;
         String pluginId = "pdf-generator";
+        Long nodeInstanceId = 200L;
         PluginResult.GeneratedFile file = PluginResult.GeneratedFile.builder()
             .fileName("report.pdf")
             .nasPath("/plugins/report.pdf")
             .ossId(54321L)
             .build();
 
-        service.recordPluginGenerated(projectId, pluginId, file);
+        service.recordPluginGenerated(projectId, pluginId, nodeInstanceId, file);
 
         verify(baseMapper).insert(any(DocDocumentRecord.class));
 
@@ -196,6 +197,7 @@ class DocDocumentRecordServiceImplTest {
         verify(baseMapper).insert(captor.capture());
         DocDocumentRecord inserted = captor.getValue();
         assertEquals(projectId, inserted.getProjectId());
+        assertEquals(nodeInstanceId, inserted.getNodeInstanceId());
         assertEquals(pluginId, inserted.getPluginId());
         assertEquals(DocDocumentSourceType.PLUGIN.getCode(), inserted.getSourceType());
         assertEquals("report.pdf", inserted.getFileName());
@@ -209,20 +211,44 @@ class DocDocumentRecordServiceImplTest {
     void markLatestUniquePluginArtifactsObsolete_shouldOnlyObsoleteGeneratedRecordsForSamePlugin() {
         Long projectId = 100L;
         String pluginId = "text-export";
+        Long nodeInstanceId = 300L;
         DocDocumentRecord samePlugin = createRecord(1L, projectId, DocDocumentStatus.GENERATED.getCode());
+        samePlugin.setNodeInstanceId(nodeInstanceId);
         samePlugin.setPluginId(pluginId);
         DocDocumentRecord failedPlugin = createRecord(2L, projectId, DocDocumentStatus.FAILED.getCode());
+        failedPlugin.setNodeInstanceId(nodeInstanceId);
         failedPlugin.setPluginId(pluginId);
 
         when(baseMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(samePlugin, failedPlugin));
 
-        service.markLatestUniquePluginArtifactsObsolete(projectId, pluginId);
+        service.markLatestUniquePluginArtifactsObsolete(projectId, pluginId, nodeInstanceId);
 
         verify(baseMapper).selectList(any(LambdaQueryWrapper.class));
         verify(baseMapper).updateById(samePlugin);
         verify(baseMapper, never()).updateById(failedPlugin);
         assertEquals(DocDocumentStatus.OBSOLETE.getCode(), samePlugin.getStatus());
         assertEquals(DocDocumentStatus.FAILED.getCode(), failedPlugin.getStatus());
+    }
+
+    @Test
+    void markLatestUniquePluginArtifactsObsolete_shouldKeepGeneratedRecordsFromOtherNodeContext() {
+        Long projectId = 100L;
+        String pluginId = "text-export";
+        DocDocumentRecord currentNodeRecord = createRecord(1L, projectId, DocDocumentStatus.GENERATED.getCode());
+        currentNodeRecord.setNodeInstanceId(300L);
+        currentNodeRecord.setPluginId(pluginId);
+        DocDocumentRecord otherNodeRecord = createRecord(2L, projectId, DocDocumentStatus.GENERATED.getCode());
+        otherNodeRecord.setNodeInstanceId(301L);
+        otherNodeRecord.setPluginId(pluginId);
+
+        when(baseMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(currentNodeRecord));
+
+        service.markLatestUniquePluginArtifactsObsolete(projectId, pluginId, 300L);
+
+        verify(baseMapper).updateById(currentNodeRecord);
+        verify(baseMapper, never()).updateById(otherNodeRecord);
+        assertEquals(DocDocumentStatus.OBSOLETE.getCode(), currentNodeRecord.getStatus());
+        assertEquals(DocDocumentStatus.GENERATED.getCode(), otherNodeRecord.getStatus());
     }
 
     // ==================== markObsoleteById ====================

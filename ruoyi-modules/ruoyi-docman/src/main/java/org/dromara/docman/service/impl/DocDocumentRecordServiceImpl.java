@@ -66,9 +66,10 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     }
 
     @Override
-    public void recordPluginGenerated(Long projectId, String pluginId, PluginResult.GeneratedFile file) {
+    public void recordPluginGenerated(Long projectId, String pluginId, Long nodeInstanceId, PluginResult.GeneratedFile file) {
         DocDocumentRecord record = new DocDocumentRecord();
         record.setProjectId(projectId);
+        record.setNodeInstanceId(nodeInstanceId);
         record.setPluginId(pluginId);
         record.setSourceType(DocDocumentSourceType.PLUGIN.getCode());
         record.setFileName(file.getFileName());
@@ -80,12 +81,13 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
     }
 
     @Override
-    public void markLatestUniquePluginArtifactsObsolete(Long projectId, String pluginId) {
-        if (projectId == null || pluginId == null || pluginId.isBlank()) {
+    public void markLatestUniquePluginArtifactsObsolete(Long projectId, String pluginId, Long nodeInstanceId) {
+        if (projectId == null || pluginId == null || pluginId.isBlank() || nodeInstanceId == null) {
             return;
         }
         baseMapper.selectList(new LambdaQueryWrapper<DocDocumentRecord>()
                 .eq(DocDocumentRecord::getProjectId, projectId)
+                .eq(DocDocumentRecord::getNodeInstanceId, nodeInstanceId)
                 .eq(DocDocumentRecord::getPluginId, pluginId)
                 .eq(DocDocumentRecord::getStatus, DocDocumentStatus.GENERATED.getCode()))
             .stream()
