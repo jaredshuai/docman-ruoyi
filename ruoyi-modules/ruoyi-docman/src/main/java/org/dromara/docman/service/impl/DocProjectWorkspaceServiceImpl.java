@@ -100,13 +100,21 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         vo.setCurrentNodeName(resolveNodeName(nodes, runtime.getCurrentNodeCode()));
         vo.setRuntimeStatus(runtime.getStatus());
         vo.setNodes(buildNodeVos(nodes));
-        vo.setCurrentNodeTasks(buildTaskRuntimeVos(projectId, runtime.getCurrentNodeCode()));
+        List<DocProjectNodeTaskRuntimeVo> currentNodeTasks = buildTaskRuntimeVos(projectId, runtime.getCurrentNodeCode());
+        vo.setCurrentNodeTasks(currentNodeTasks);
         vo.setDrawingCount(queryDrawingCount(projectId, false));
         vo.setIncludedDrawingCount(queryDrawingCount(projectId, true));
         vo.setVisaCount(queryVisaCount(projectId, false));
         vo.setIncludedVisaCount(queryVisaCount(projectId, true));
-        vo.setLatestEstimateSnapshot(queryLatestEstimateSnapshot(projectId));
+        DocProjectEstimateSnapshotVo latestEstimateSnapshot = queryLatestEstimateSnapshot(projectId);
+        vo.setLatestEstimateSnapshot(latestEstimateSnapshot);
         vo.setLatestExportArtifact(queryLatestExportArtifact(projectId, runtime.getWorkflowTemplateId()));
+        TriggerState estimateTriggerState = resolveEstimateTriggerState(currentNodeTasks);
+        vo.setEstimateTriggerReady(estimateTriggerState.ready());
+        vo.setEstimateTriggerBlockedReason(estimateTriggerState.blockedReason());
+        TriggerState exportTriggerState = resolveExportTriggerState(currentNodeTasks, latestEstimateSnapshot != null);
+        vo.setExportTriggerReady(exportTriggerState.ready());
+        vo.setExportTriggerBlockedReason(exportTriggerState.blockedReason());
         return vo;
     }
 
@@ -593,6 +601,43 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         return vo;
     }
 
+    private TriggerState resolveEstimateTriggerState(List<DocProjectNodeTaskRuntimeVo> currentNodeTasks) {
+        DocProjectNodeTaskRuntimeVo estimateTask = currentNodeTasks.stream()
+            .filter(this::isEstimateTask)
+            .findFirst()
+            .orElse(null);
+        if (estimateTask == null) {
+            return TriggerState.createUnsupported();
+        }
+        if (DocProjectNodeTaskStatus.COMPLETED.getCode().equals(estimateTask.getStatus())) {
+            return TriggerState.createBlocked("当前节点初步估算事项已完成");
+        }
+        if (StringUtils.isBlank(estimateTask.getPluginCodes())) {
+            return TriggerState.createBlocked("当前节点初步估算事项未绑定插件");
+        }
+        return TriggerState.createReady();
+    }
+
+    private TriggerState resolveExportTriggerState(List<DocProjectNodeTaskRuntimeVo> currentNodeTasks, boolean hasEstimateSnapshot) {
+        DocProjectNodeTaskRuntimeVo exportTask = currentNodeTasks.stream()
+            .filter(this::isExportTask)
+            .findFirst()
+            .orElse(null);
+        if (exportTask == null) {
+            return TriggerState.createUnsupported();
+        }
+        if (!hasEstimateSnapshot) {
+            return TriggerState.createBlocked("请先完成初步估算后再导出文本");
+        }
+        if (DocProjectNodeTaskStatus.COMPLETED.getCode().equals(exportTask.getStatus())) {
+            return TriggerState.createBlocked("当前节点文本导出事项已完成");
+        }
+        if (StringUtils.isBlank(exportTask.getPluginCodes())) {
+            return TriggerState.createBlocked("当前节点文本导出事项未绑定插件");
+        }
+        return TriggerState.createReady();
+    }
+
     private void markTaskCompleted(DocProjectNodeTaskRuntime runtime, String evidenceRef) {
         runtime.setStatus(DocProjectNodeTaskStatus.COMPLETED.getCode());
         runtime.setCompletedBy(LoginHelper.getUserId());
@@ -637,6 +682,17 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
 
     private boolean isPluginTask(DocWorkflowNodeTask definition) {
         return StringUtils.equals("plugin_run", definition.getTaskType());
+    }
+
+    private boolean isEstimateTask(DocProjectNodeTaskRuntimeVo task) {
+        return StringUtils.equals("plugin_run", task.getTaskType())
+            && (DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS.getCode().equals(task.getCompletionRule())
+            || StringUtils.equals("estimate_run", task.getTaskCode()));
+    }
+
+    private boolean isExportTask(DocProjectNodeTaskRuntimeVo task) {
+        return StringUtils.equals("plugin_run", task.getTaskType())
+            && StringUtils.equals("export_run", task.getTaskCode());
     }
 
     private boolean hasBoundPlugins(DocWorkflowNodeTask definition) {
@@ -709,6 +765,21 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
 
         private static TaskCompletionEvaluation autoCompleted(String evidenceRef) {
             return new TaskCompletionEvaluation(true, true, evidenceRef);
+        }
+    }
+
+    private record TriggerState(boolean ready, String blockedReason) {
+
+        private static TriggerState createReady() {
+            return new TriggerState(true, null);
+        }
+
+        private static TriggerState createBlocked(String blockedReason) {
+            return new TriggerState(false, blockedReason);
+        }
+
+        private static TriggerState createUnsupported() {
+            return new TriggerState(false, null);
         }
     }
 

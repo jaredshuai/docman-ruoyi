@@ -196,6 +196,10 @@ class DocProjectWorkspaceServiceImplTest {
         assertEquals(1L, workspace.getIncludedDrawingCount());
         assertEquals(0L, workspace.getVisaCount());
         assertEquals(0L, workspace.getIncludedVisaCount());
+        assertEquals(false, workspace.getEstimateTriggerReady());
+        assertEquals(null, workspace.getEstimateTriggerBlockedReason());
+        assertEquals(false, workspace.getExportTriggerReady());
+        assertEquals(null, workspace.getExportTriggerBlockedReason());
         assertEquals("completed", taskRuntime.getStatus());
         verify(taskRuntimeMapper).updateById(taskRuntime);
     }
@@ -249,6 +253,8 @@ class DocProjectWorkspaceServiceImplTest {
         assertEquals(901L, workspace.getLatestExportArtifact().getId());
         assertEquals("obsolete", workspace.getLatestExportArtifact().getStatus());
         assertEquals("latest.txt", workspace.getLatestExportArtifact().getFileName());
+        assertEquals(false, workspace.getExportTriggerReady());
+        assertEquals("请先完成初步估算后再导出文本", workspace.getExportTriggerBlockedReason());
     }
 
     @Test

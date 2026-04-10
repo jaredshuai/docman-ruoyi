@@ -29,6 +29,8 @@ public class DocProjectWorkspaceVo implements Serializable {
     private Long includedVisaCount;
     private Boolean estimateTriggerReady;
     private String estimateTriggerBlockedReason;
+    private Boolean exportTriggerReady;
+    private String exportTriggerBlockedReason;
     private DocProjectEstimateSnapshotVo latestEstimateSnapshot;
     private DocDocumentRecordVo latestExportArtifact;
 }
