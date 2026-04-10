@@ -28,10 +28,11 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
     @Override
     public DocProjectBalanceAdjustmentVo queryLatest(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return balanceAdjustmentMapper.selectVoOne(new LambdaQueryWrapper<DocProjectBalanceAdjustment>()
+        DocProjectBalanceAdjustment entity = balanceAdjustmentMapper.selectOne(new LambdaQueryWrapper<DocProjectBalanceAdjustment>()
             .eq(DocProjectBalanceAdjustment::getProjectId, projectId)
             .orderByDesc(DocProjectBalanceAdjustment::getCreateTime)
             .last("limit 1"));
+        return entity == null ? null : toVo(entity);
     }
 
     @Override
@@ -69,5 +70,17 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
         if (!bo.getProjectId().equals(existing.getProjectId())) {
             throw new ServiceException("不允许跨项目修改平料记录");
         }
+    }
+
+    private DocProjectBalanceAdjustmentVo toVo(DocProjectBalanceAdjustment entity) {
+        DocProjectBalanceAdjustmentVo vo = new DocProjectBalanceAdjustmentVo();
+        vo.setId(entity.getId());
+        vo.setProjectId(entity.getProjectId());
+        vo.setMaterialPrice(entity.getMaterialPrice());
+        vo.setBalanceRemark(entity.getBalanceRemark());
+        vo.setStatus(entity.getStatus());
+        vo.setCreateTime(entity.getCreateTime());
+        vo.setUpdateTime(entity.getUpdateTime());
+        return vo;
     }
 }

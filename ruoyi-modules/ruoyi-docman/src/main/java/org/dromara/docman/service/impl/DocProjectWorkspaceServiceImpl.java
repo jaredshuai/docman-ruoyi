@@ -563,11 +563,12 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     }
 
     private DocProjectEstimateSnapshotVo queryLatestEstimateSnapshot(Long projectId) {
-        return estimateSnapshotMapper.selectVoOne(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
+        DocProjectEstimateSnapshot snapshot = estimateSnapshotMapper.selectOne(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
             .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
             .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE)
             .orderByDesc(DocProjectEstimateSnapshot::getCreateTime)
             .last("limit 1"));
+        return snapshot == null ? null : toEstimateSnapshotVo(snapshot);
     }
 
     private Long queryDrawingCount(Long projectId, boolean includedOnly) {
@@ -647,6 +648,20 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         vo.setGeneratedAt(record.getGeneratedAt());
         vo.setArchivedAt(record.getArchivedAt());
         vo.setCreateTime(record.getCreateTime());
+        return vo;
+    }
+
+    private DocProjectEstimateSnapshotVo toEstimateSnapshotVo(DocProjectEstimateSnapshot snapshot) {
+        DocProjectEstimateSnapshotVo vo = new DocProjectEstimateSnapshotVo();
+        vo.setId(snapshot.getId());
+        vo.setProjectId(snapshot.getProjectId());
+        vo.setEstimateType(snapshot.getEstimateType());
+        vo.setEstimateAmount(snapshot.getEstimateAmount());
+        vo.setDrawingCount(snapshot.getDrawingCount());
+        vo.setVisaCount(snapshot.getVisaCount());
+        vo.setStatus(snapshot.getStatus());
+        vo.setSummary(snapshot.getSummary());
+        vo.setCreateTime(snapshot.getCreateTime());
         return vo;
     }
 

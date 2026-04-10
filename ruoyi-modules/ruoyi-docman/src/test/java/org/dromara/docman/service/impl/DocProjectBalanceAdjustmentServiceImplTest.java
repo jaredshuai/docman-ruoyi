@@ -9,6 +9,7 @@ import org.dromara.docman.domain.bo.DocProjectBalanceAdjustmentBo;
 import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
 import org.dromara.docman.domain.enums.DocProjectAction;
+import org.dromara.docman.domain.vo.DocProjectBalanceAdjustmentVo;
 import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.service.IDocProjectAccessService;
@@ -22,8 +23,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -66,6 +69,29 @@ class DocProjectBalanceAdjustmentServiceImplTest {
 
         assertEquals("请先完成初步估算后再执行平料", ex.getMessage());
         verify(projectAccessService).assertAction(1L, DocProjectAction.EDIT_PROJECT);
+    }
+
+    @Test
+    void queryLatest_shouldMapEntityToVo() {
+        Date now = new Date();
+        DocProjectBalanceAdjustment entity = new DocProjectBalanceAdjustment();
+        entity.setId(7L);
+        entity.setProjectId(2L);
+        entity.setMaterialPrice(new BigDecimal("66.88"));
+        entity.setBalanceRemark("latest");
+        entity.setStatus("active");
+        entity.setCreateTime(now);
+        entity.setUpdateTime(now);
+
+        when(balanceAdjustmentMapper.selectOne(any())).thenReturn(entity);
+
+        DocProjectBalanceAdjustmentVo vo = service.queryLatest(2L);
+
+        assertNotNull(vo);
+        assertEquals(7L, vo.getId());
+        assertEquals(new BigDecimal("66.88"), vo.getMaterialPrice());
+        assertEquals(now, vo.getCreateTime());
+        verify(projectAccessService).assertAction(2L, DocProjectAction.VIEW_PROJECT);
     }
 
     @Test
