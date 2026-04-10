@@ -13,6 +13,7 @@ import org.dromara.docman.service.IDocProjectDrawingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,9 +26,14 @@ public class DocProjectDrawingServiceImpl implements IDocProjectDrawingService {
     @Override
     public List<DocProjectDrawingVo> listByProject(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return drawingMapper.selectVoList(new LambdaQueryWrapper<DocProjectDrawing>()
+        List<DocProjectDrawing> entities = drawingMapper.selectList(new LambdaQueryWrapper<DocProjectDrawing>()
             .eq(DocProjectDrawing::getProjectId, projectId)
             .orderByAsc(DocProjectDrawing::getCreateTime));
+        List<DocProjectDrawingVo> result = new ArrayList<>(entities.size());
+        for (DocProjectDrawing entity : entities) {
+            result.add(toVo(entity));
+        }
+        return result;
     }
 
     @Override
