@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.dromara.docman.mapper.DocProjectAddRecordMapper">
+
+    <select id="selectVoListByProjectId" resultType="org.dromara.docman.domain.vo.DocProjectAddRecordVo">
+        select r.id,
+               r.project_id as projectId,
+               r.enable,
+               r.estimated_price as estimatedPrice,
+               r.remark,
+               r.create_by as createBy,
+               r.create_time as createTime,
+               r.update_by as updateBy,
+               r.update_time as updateTime
+        from doc_project_add_record r
+        where r.project_id = #{projectId}
+          and r.del_flag = '0'
+        order by r.create_time desc
+    </select>
+
+    <select id="selectVoViewById" resultType="org.dromara.docman.domain.vo.DocProjectAddRecordVo">
+        select r.id,
+               r.project_id as projectId,
+               r.enable,
+               r.estimated_price as estimatedPrice,
+               r.remark,
+               r.create_by as createBy,
+               r.create_time as createTime,
+               r.update_by as updateBy,
+               r.update_time as updateTime
+        from doc_project_add_record r
+        where r.id = #{id}
+          and r.del_flag = '0'
+        limit 1
+    </select>
+
+</mapper>
