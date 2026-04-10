@@ -11,6 +11,7 @@ import org.dromara.docman.context.NodeContextReader;
 import org.dromara.docman.domain.bo.DocProjectAdvanceNodeBo;
 import org.dromara.docman.domain.bo.DocProjectNodeTaskCompleteBo;
 import org.dromara.docman.domain.entity.DocNodeContext;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
@@ -22,6 +23,7 @@ import org.dromara.docman.domain.entity.DocWorkflowTemplate;
 import org.dromara.docman.domain.entity.DocWorkflowTemplateNode;
 import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.vo.DocProjectEstimateSnapshotVo;
+import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
@@ -49,6 +51,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -68,6 +71,7 @@ class DocProjectWorkspaceServiceImplTest {
     @BeforeAll
     static void initTableInfo() {
         initTableInfo(DocProject.class);
+        initTableInfo(DocDocumentRecord.class);
         initTableInfo(DocProjectDrawing.class);
         initTableInfo(DocProjectEstimateSnapshot.class);
         initTableInfo(DocProjectNodeTaskRuntime.class);
@@ -87,6 +91,7 @@ class DocProjectWorkspaceServiceImplTest {
     @Mock private DocWorkflowNodeTaskMapper taskMapper;
     @Mock private DocProjectNodeTaskRuntimeMapper taskRuntimeMapper;
     @Mock private DocProjectDrawingMapper drawingMapper;
+    @Mock private DocDocumentRecordMapper documentRecordMapper;
     @Mock private DocProjectVisaMapper visaMapper;
     @Mock private DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     @Mock private INodeContextService nodeContextService;
@@ -189,6 +194,57 @@ class DocProjectWorkspaceServiceImplTest {
         assertEquals("completed", workspace.getCurrentNodeTasks().get(0).getStatus());
         assertEquals("completed", taskRuntime.getStatus());
         verify(taskRuntimeMapper).updateById(taskRuntime);
+    }
+
+    @Test
+    void shouldExposeLatestExportArtifactFromWorkspaceAggregation() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "export_text");
+        DocWorkflowTemplate template = new DocWorkflowTemplate();
+        template.setId(10L);
+        DocWorkflowTemplateNode exportNode = node(10L, "export_text");
+        DocWorkflowNodeTask exportTask = task("export_run", "plugin_run", true, null, "telecom-export-text-v2");
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(30L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("export_text");
+        taskRuntime.setTaskCode("export_run");
+        taskRuntime.setStatus("pending");
+        DocDocumentRecord latestArtifact = new DocDocumentRecord();
+        latestArtifact.setId(901L);
+        latestArtifact.setProjectId(projectId);
+        latestArtifact.setPluginId("telecom-export-text-v2");
+        latestArtifact.setSourceType("plugin");
+        latestArtifact.setFileName("latest.txt");
+        latestArtifact.setNasPath("/docman/project/1/export/latest.txt");
+        latestArtifact.setStatus("obsolete");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(templateMapper.selectById(10L)).thenReturn(template);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(
+            List.of(exportNode),
+            List.of(exportNode),
+            List.of(exportNode)
+        );
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(
+            List.of(exportTask),
+            List.of(exportTask),
+            List.of(exportTask)
+        );
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(documentRecordMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(latestArtifact);
+
+        var workspace = service.getWorkspace(projectId);
+
+        assertNotNull(workspace.getLatestExportArtifact());
+        assertEquals(901L, workspace.getLatestExportArtifact().getId());
+        assertEquals("obsolete", workspace.getLatestExportArtifact().getStatus());
+        assertEquals("latest.txt", workspace.getLatestExportArtifact().getFileName());
     }
 
     @Test

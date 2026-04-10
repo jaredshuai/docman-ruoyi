@@ -9,6 +9,7 @@ import org.dromara.docman.application.service.DocWorkflowNodeApplicationService;
 import org.dromara.docman.domain.bo.DocProjectAdvanceNodeBo;
 import org.dromara.docman.domain.bo.DocProjectNodeTaskCompleteBo;
 import org.dromara.docman.domain.entity.DocProject;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
 import org.dromara.docman.domain.entity.DocProjectType;
@@ -24,11 +25,13 @@ import org.dromara.docman.domain.enums.DocProjectRuntimeStatus;
 import org.dromara.docman.domain.enums.DocWorkflowTaskCompletionRule;
 import org.dromara.docman.domain.service.DocProjectRuntimeStateMachine;
 import org.dromara.docman.domain.vo.DocProjectNodeTaskRuntimeVo;
+import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.domain.vo.DocProjectEstimateSnapshotVo;
 import org.dromara.docman.domain.vo.DocProjectWorkspaceVo;
 import org.dromara.docman.domain.vo.DocWorkflowNodeTaskVo;
 import org.dromara.docman.domain.vo.DocWorkflowTemplateNodeVo;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
+import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
@@ -67,6 +70,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     private final DocWorkflowNodeTaskMapper taskMapper;
     private final DocProjectNodeTaskRuntimeMapper taskRuntimeMapper;
     private final DocProjectDrawingMapper drawingMapper;
+    private final DocDocumentRecordMapper documentRecordMapper;
     private final DocProjectVisaMapper visaMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final INodeContextService nodeContextService;
@@ -102,6 +106,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         vo.setVisaCount(visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>()
             .eq(DocProjectVisa::getProjectId, projectId)));
         vo.setLatestEstimateSnapshot(queryLatestEstimateSnapshot(projectId));
+        vo.setLatestExportArtifact(queryLatestExportArtifact(projectId, runtime.getWorkflowTemplateId()));
         return vo;
     }
 
@@ -531,6 +536,43 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
             .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE));
         estimateSnapshotMapper.insert(snapshot);
+    }
+
+    private DocDocumentRecordVo queryLatestExportArtifact(Long projectId, Long workflowTemplateId) {
+        List<String> exportPluginIds = listTaskDefinitions(workflowTemplateId, EXPORT_TEXT_NODE_CODE).stream()
+            .filter(this::isPluginTask)
+            .map(DocWorkflowNodeTask::getPluginCodes)
+            .filter(StringUtils::isNotBlank)
+            .flatMap(pluginCodes -> parsePluginCodes(pluginCodes).stream())
+            .distinct()
+            .toList();
+        if (exportPluginIds.isEmpty()) {
+            return null;
+        }
+        DocDocumentRecord record = documentRecordMapper.selectOne(new LambdaQueryWrapper<DocDocumentRecord>()
+            .eq(DocDocumentRecord::getProjectId, projectId)
+            .in(DocDocumentRecord::getPluginId, exportPluginIds)
+            .orderByDesc(DocDocumentRecord::getCreateTime)
+            .orderByDesc(DocDocumentRecord::getId)
+            .last("limit 1"));
+        return record == null ? null : toDocumentRecordVo(record);
+    }
+
+    private DocDocumentRecordVo toDocumentRecordVo(DocDocumentRecord record) {
+        DocDocumentRecordVo vo = new DocDocumentRecordVo();
+        vo.setId(record.getId());
+        vo.setProjectId(record.getProjectId());
+        vo.setNodeInstanceId(record.getNodeInstanceId());
+        vo.setPluginId(record.getPluginId());
+        vo.setSourceType(record.getSourceType());
+        vo.setFileName(record.getFileName());
+        vo.setNasPath(record.getNasPath());
+        vo.setOssId(record.getOssId());
+        vo.setStatus(record.getStatus());
+        vo.setGeneratedAt(record.getGeneratedAt());
+        vo.setArchivedAt(record.getArchivedAt());
+        vo.setCreateTime(record.getCreateTime());
+        return vo;
     }
 
     private void markTaskCompleted(DocProjectNodeTaskRuntime runtime, String evidenceRef) {

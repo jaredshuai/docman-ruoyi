@@ -30,4 +30,5 @@ public class DocProjectWorkspaceVo implements Serializable {
     private Boolean estimateTriggerReady;
     private String estimateTriggerBlockedReason;
     private DocProjectEstimateSnapshotVo latestEstimateSnapshot;
+    private DocDocumentRecordVo latestExportArtifact;
 }
