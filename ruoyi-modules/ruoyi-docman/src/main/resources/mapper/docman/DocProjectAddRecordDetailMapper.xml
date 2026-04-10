@@ -1,40 +1,24 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="org.dromara.docman.mapper.DocProjectAddRecordMapper">
+<mapper namespace="org.dromara.docman.mapper.DocProjectAddRecordDetailMapper">
 
-    <select id="selectVoListByProjectId" resultType="org.dromara.docman.domain.vo.DocProjectAddRecordVo">
-        select r.id,
-               r.project_id as projectId,
-               r.enable,
-               r.estimated_price as estimatedPrice,
-               r.remark,
-               r.create_by as createBy,
-               r.create_time as createTime,
-               r.update_by as updateBy,
-               r.update_time as updateTime,
-               p.name as projectName
-        from doc_project_add_record r
-                 left join doc_project p on p.id = r.project_id
-        where r.project_id = #{projectId}
-          and r.del_flag = '0'
-        order by r.create_time desc
-    </select>
-
-    <select id="selectVoViewById" resultType="org.dromara.docman.domain.vo.DocProjectAddRecordVo">
-        select r.id,
-               r.project_id as projectId,
-               r.enable,
-               r.estimated_price as estimatedPrice,
-               r.remark,
-               r.create_by as createBy,
-               r.create_time as createTime,
-               r.update_by as updateBy,
-               r.update_time as updateTime
-        from doc_project_add_record r
-        where r.id = #{id}
-          and r.del_flag = '0'
-        limit 1
+    <select id="selectVoListByRecordId" resultType="org.dromara.docman.domain.vo.DocProjectAddRecordDetailVo">
+        select d.id,
+               d.project_id as projectId,
+               d.project_add_record_id as projectAddRecordId,
+               d.name,
+               d.alias,
+               d.price,
+               d.remark,
+               d.create_by as createBy,
+               d.create_time as createTime,
+               d.update_by as updateBy,
+               d.update_time as updateTime
+        from doc_project_add_record_detail d
+        where d.project_add_record_id = #{projectAddRecordId}
+          and d.del_flag = '0'
+        order by d.create_time asc
     </select>
 
 </mapper>
