@@ -87,11 +87,9 @@ public class DocDocumentRecordServiceImpl implements IDocDocumentRecordService {
         baseMapper.selectList(new LambdaQueryWrapper<DocDocumentRecord>()
                 .eq(DocDocumentRecord::getProjectId, projectId)
                 .eq(DocDocumentRecord::getPluginId, pluginId)
-                .in(DocDocumentRecord::getStatus,
-                    DocDocumentStatus.PENDING.getCode(),
-                    DocDocumentStatus.RUNNING.getCode(),
-                    DocDocumentStatus.GENERATED.getCode(),
-                    DocDocumentStatus.FAILED.getCode()))
+                .eq(DocDocumentRecord::getStatus, DocDocumentStatus.GENERATED.getCode()))
+            .stream()
+            .filter(record -> DocDocumentStatus.GENERATED.getCode().equals(record.getStatus()))
             .forEach(this::markObsolete);
     }
 

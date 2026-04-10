@@ -433,6 +433,9 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             }
             return;
         }
+        if (requiresGeneratedArtifact(taskRuntime) && !hasGeneratedArtifacts(results)) {
+            throw new ServiceException("文本导出未生成有效产物，事项未完成");
+        }
         markTaskCompleted(taskRuntime, "plugin:" + definition.getPluginCodes());
     }
 
@@ -580,6 +583,10 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         return StringUtils.isNotBlank(definition.getPluginCodes());
     }
 
+    private boolean requiresGeneratedArtifact(DocProjectNodeTaskRuntime taskRuntime) {
+        return StringUtils.equals(EXPORT_TEXT_NODE_CODE, taskRuntime.getNodeCode());
+    }
+
     private boolean usesEstimateSnapshotRule(DocWorkflowNodeTask definition) {
         return resolveCompletionRule(definition) == DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS;
     }
@@ -614,6 +621,12 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
 
     private boolean isAutoEvidence(String evidenceRef) {
         return StringUtils.isNotBlank(evidenceRef) && evidenceRef.startsWith(AUTO_EVIDENCE_PREFIX);
+    }
+
+    private boolean hasGeneratedArtifacts(List<org.dromara.docman.plugin.runtime.PluginExecutionResult> results) {
+        return results.stream().anyMatch(result -> result.getResult() != null
+            && result.getResult().getGeneratedFiles() != null
+            && !result.getResult().getGeneratedFiles().isEmpty());
     }
 
     private DocProjectNodeTaskRuntime requiredTaskRuntime(Long projectId, Long taskRuntimeId) {

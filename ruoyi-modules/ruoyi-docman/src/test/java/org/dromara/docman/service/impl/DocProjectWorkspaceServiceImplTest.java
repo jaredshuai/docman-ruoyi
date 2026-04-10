@@ -330,7 +330,10 @@ class DocProjectWorkspaceServiceImplTest {
             .thenReturn(List.of(PluginExecutionResult.builder()
                 .pluginId("telecom-export-text-v2")
                 .costMs(12L)
-                .result(PluginResult.ok())
+                .result(PluginResult.ok(List.of(PluginResult.GeneratedFile.builder()
+                    .fileName("telecom.txt")
+                    .nasPath("/docman/project/1/export/telecom.txt")
+                    .build())))
                 .build()));
 
         try (MockedStatic<LoginHelper> loginHelper = mockStatic(LoginHelper.class)) {
@@ -342,6 +345,50 @@ class DocProjectWorkspaceServiceImplTest {
         verify(taskRuntimeMapper).updateById(taskRuntime);
         verify(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         assertEquals("completed", taskRuntime.getStatus());
+    }
+
+    @Test
+    void shouldRejectExportWhenPluginSucceedsWithoutGeneratedFiles() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "export_text");
+        DocWorkflowTemplateNode node = node(10L, "export_text");
+        DocWorkflowNodeTask definition = task("export_run", "plugin_run", true, null, "telecom-export-text-v2");
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(20L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("export_text");
+        taskRuntime.setTaskCode("export_run");
+        taskRuntime.setStatus("pending");
+        DocProjectEstimateSnapshotVo snapshotVo = new DocProjectEstimateSnapshotVo();
+        snapshotVo.setId(102L);
+        snapshotVo.setProjectId(projectId);
+
+        DocNodeContext nodeContext = mock(DocNodeContext.class);
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node), List.of(node), List.of(node));
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
+        when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(definition, definition);
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime), List.of(taskRuntime));
+        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(snapshotVo);
+        when(nodeContextService.getOrCreate(100L, "export_text", projectId)).thenReturn(nodeContext);
+        when(nodeContext.getId()).thenReturn(77L);
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(2L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+        when(workflowNodeApplicationService.triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(List.of(PluginExecutionResult.builder()
+                .pluginId("telecom-export-text-v2")
+                .costMs(12L)
+                .result(PluginResult.ok())
+                .build()));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
+
+        assertEquals("文本导出未生成有效产物，事项未完成", ex.getMessage());
+        verify(taskRuntimeMapper, never()).updateById(taskRuntime);
+        assertEquals("pending", taskRuntime.getStatus());
     }
 
     @Test

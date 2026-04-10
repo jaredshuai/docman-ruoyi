@@ -206,7 +206,7 @@ class DocDocumentRecordServiceImplTest {
     }
 
     @Test
-    void markLatestUniquePluginArtifactsObsolete_shouldOnlyObsoleteSamePluginRecords() {
+    void markLatestUniquePluginArtifactsObsolete_shouldOnlyObsoleteGeneratedRecordsForSamePlugin() {
         Long projectId = 100L;
         String pluginId = "text-export";
         DocDocumentRecord samePlugin = createRecord(1L, projectId, DocDocumentStatus.GENERATED.getCode());
@@ -220,9 +220,9 @@ class DocDocumentRecordServiceImplTest {
 
         verify(baseMapper).selectList(any(LambdaQueryWrapper.class));
         verify(baseMapper).updateById(samePlugin);
-        verify(baseMapper).updateById(failedPlugin);
+        verify(baseMapper, never()).updateById(failedPlugin);
         assertEquals(DocDocumentStatus.OBSOLETE.getCode(), samePlugin.getStatus());
-        assertEquals(DocDocumentStatus.OBSOLETE.getCode(), failedPlugin.getStatus());
+        assertEquals(DocDocumentStatus.FAILED.getCode(), failedPlugin.getStatus());
     }
 
     // ==================== markObsoleteById ====================

@@ -41,16 +41,11 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
         ensureEstimateSnapshotExists(bo.getProjectId());
         validateUpdateScope(bo);
         DocProjectBalanceAdjustment entity = new DocProjectBalanceAdjustment();
-        entity.setId(bo.getId());
         entity.setProjectId(bo.getProjectId());
         entity.setMaterialPrice(bo.getMaterialPrice());
         entity.setBalanceRemark(bo.getBalanceRemark());
         entity.setStatus((bo.getStatus() == null || bo.getStatus().isBlank()) ? "active" : bo.getStatus());
-        if (bo.getId() == null) {
-            balanceAdjustmentMapper.insert(entity);
-        } else {
-            balanceAdjustmentMapper.updateById(entity);
-        }
+        balanceAdjustmentMapper.insert(entity);
         return entity.getId();
     }
 

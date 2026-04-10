@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -106,6 +107,27 @@ class DocProjectBalanceAdjustmentServiceImplTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.save(bo));
 
         assertEquals("不允许跨项目修改平料记录", ex.getMessage());
+    }
+
+    @Test
+    void shouldAppendNewBalanceRecordWhenUpdatingExistingProjectBalance() {
+        DocProjectBalanceAdjustmentBo bo = new DocProjectBalanceAdjustmentBo();
+        bo.setId(9L);
+        bo.setProjectId(2L);
+        bo.setMaterialPrice(new BigDecimal("789"));
+        bo.setBalanceRemark("append");
+
+        DocProjectBalanceAdjustment existing = new DocProjectBalanceAdjustment();
+        existing.setId(9L);
+        existing.setProjectId(2L);
+
+        when(estimateSnapshotMapper.selectCount(any())).thenReturn(1L);
+        when(balanceAdjustmentMapper.selectById(9L)).thenReturn(existing);
+
+        service.save(bo);
+
+        verify(balanceAdjustmentMapper).insert(any(DocProjectBalanceAdjustment.class));
+        verify(balanceAdjustmentMapper, never()).updateById(any(DocProjectBalanceAdjustment.class));
     }
 
     private static void initTableInfo(Class<?> entityClass) {
