@@ -15,7 +15,8 @@ public enum DocWorkflowTaskCompletionRule {
     PROJECT_BASIC_INFO_PRESENT("project_basic_info_present", "项目基础信息已具备"),
     DRAWING_EXISTS("drawing_exists", "存在有效图纸"),
     VISA_EXISTS("visa_exists", "存在有效签证"),
-    ESTIMATE_SNAPSHOT_EXISTS("estimate_snapshot_exists", "存在估算快照");
+    ESTIMATE_SNAPSHOT_EXISTS("estimate_snapshot_exists", "存在估算快照"),
+    BALANCE_ADJUSTMENT_EXISTS("balance_adjustment_exists", "存在平料记录");
 
     private final String code;
     private final String label;

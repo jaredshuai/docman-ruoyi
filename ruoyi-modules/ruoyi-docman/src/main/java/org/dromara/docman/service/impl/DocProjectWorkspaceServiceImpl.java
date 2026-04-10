@@ -10,6 +10,7 @@ import org.dromara.docman.domain.bo.DocProjectAdvanceNodeBo;
 import org.dromara.docman.domain.bo.DocProjectNodeTaskCompleteBo;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
+import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
 import org.dromara.docman.domain.entity.DocProjectType;
@@ -32,6 +33,7 @@ import org.dromara.docman.domain.vo.DocWorkflowNodeTaskVo;
 import org.dromara.docman.domain.vo.DocWorkflowTemplateNodeVo;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
+import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
@@ -71,6 +73,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     private final DocProjectNodeTaskRuntimeMapper taskRuntimeMapper;
     private final DocProjectDrawingMapper drawingMapper;
     private final DocDocumentRecordMapper documentRecordMapper;
+    private final DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
     private final DocProjectVisaMapper visaMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final INodeContextService nodeContextService;
@@ -329,7 +332,8 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             List.of(task("estimate_run", "执行初步估算", "plugin_run", true, 1,
                 DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS.getCode(), "telecom-estimate-mock")));
         createDefaultNode(template.getId(), 5, "manager_balance", "项目经理平料",
-            List.of(task("manager_adjust", "录入材料价格并平料", "manager_adjust", true, 1, null, null)));
+            List.of(task("manager_adjust", "录入材料价格并平料", "manager_adjust", true, 1,
+                DocWorkflowTaskCompletionRule.BALANCE_ADJUSTMENT_EXISTS.getCode(), null)));
         createDefaultNode(template.getId(), 6, "export_text", "导出文本",
             List.of(task("export_run", "导出文本", "plugin_run", true, 1, null, "telecom-export-text-mock")));
     }
@@ -498,6 +502,9 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
                     ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode() + ":" + snapshot.getId())
                     : TaskCompletionEvaluation.autoPending();
             }
+            case BALANCE_ADJUSTMENT_EXISTS -> hasBalanceAdjustment(project.getId())
+                ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode())
+                : TaskCompletionEvaluation.autoPending();
         };
     }
 
@@ -511,6 +518,12 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         return visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>()
             .eq(DocProjectVisa::getProjectId, projectId)
             .eq(DocProjectVisa::getIncludeInProject, true)) > 0;
+    }
+
+    private boolean hasBalanceAdjustment(Long projectId) {
+        return balanceAdjustmentMapper.selectCount(new LambdaQueryWrapper<DocProjectBalanceAdjustment>()
+            .eq(DocProjectBalanceAdjustment::getProjectId, projectId)
+            .eq(DocProjectBalanceAdjustment::getStatus, "active")) > 0;
     }
 
     private DocProjectEstimateSnapshotVo queryLatestEstimateSnapshot(Long projectId) {
@@ -716,6 +729,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             case "drawing_fill" -> DocWorkflowTaskCompletionRule.DRAWING_EXISTS;
             case "visa_fill" -> DocWorkflowTaskCompletionRule.VISA_EXISTS;
             case "estimate_run" -> DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS;
+            case "manager_adjust" -> DocWorkflowTaskCompletionRule.BALANCE_ADJUSTMENT_EXISTS;
             default -> null;
         };
     }
