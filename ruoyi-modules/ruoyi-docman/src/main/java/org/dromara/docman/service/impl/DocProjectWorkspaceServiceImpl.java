@@ -13,6 +13,7 @@ import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
+import org.dromara.docman.domain.entity.DocProjectAddRecord;
 import org.dromara.docman.domain.entity.DocProjectType;
 import org.dromara.docman.domain.entity.DocProjectNodeTaskRuntime;
 import org.dromara.docman.domain.entity.DocProjectRuntime;
@@ -35,6 +36,7 @@ import org.dromara.docman.mapper.DocProjectDrawingMapper;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
+import org.dromara.docman.mapper.DocProjectAddRecordMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
 import org.dromara.docman.mapper.DocProjectRuntimeMapper;
@@ -74,6 +76,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     private final DocProjectDrawingMapper drawingMapper;
     private final DocDocumentRecordMapper documentRecordMapper;
     private final DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
+    private final DocProjectAddRecordMapper addRecordMapper;
     private final DocProjectVisaMapper visaMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final INodeContextService nodeContextService;
@@ -306,6 +309,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .eq(DocWorkflowTemplate::getDefaultFlag, true)
             .last("limit 1"));
         if (existingTemplate != null) {
+            ensureTelecomWorkloadNode(existingTemplate.getId());
             return;
         }
         DocWorkflowTemplate template = new DocWorkflowTemplate();
@@ -328,14 +332,37 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         createDefaultNode(template.getId(), 3, "visa_input", "签证录入",
             List.of(task("visa_fill", "录入签证信息", "form_fill", true, 1,
                 DocWorkflowTaskCompletionRule.VISA_EXISTS.getCode(), null)));
-        createDefaultNode(template.getId(), 4, "initial_estimate", "初步估算",
+        createDefaultNode(template.getId(), 4, "workload_input", "工作量录入",
+            List.of(task("workload_fill", "录入工作量记录", "form_fill", true, 1,
+                DocWorkflowTaskCompletionRule.WORKLOAD_EXISTS.getCode(), null)));
+        createDefaultNode(template.getId(), 5, "initial_estimate", "初步估算",
             List.of(task("estimate_run", "执行初步估算", "plugin_run", true, 1,
                 DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS.getCode(), "telecom-estimate-mock")));
-        createDefaultNode(template.getId(), 5, "manager_balance", "项目经理平料",
+        createDefaultNode(template.getId(), 6, "manager_balance", "项目经理平料",
             List.of(task("manager_adjust", "录入材料价格并平料", "manager_adjust", true, 1,
                 DocWorkflowTaskCompletionRule.BALANCE_ADJUSTMENT_EXISTS.getCode(), null)));
-        createDefaultNode(template.getId(), 6, "export_text", "导出文本",
+        createDefaultNode(template.getId(), 7, "export_text", "导出文本",
             List.of(task("export_run", "导出文本", "plugin_run", true, 1, null, "telecom-export-text-mock")));
+    }
+
+    private void ensureTelecomWorkloadNode(Long templateId) {
+        List<DocWorkflowTemplateNode> existingNodes = nodeMapper.selectList(new LambdaQueryWrapper<DocWorkflowTemplateNode>()
+            .eq(DocWorkflowTemplateNode::getTemplateId, templateId)
+            .orderByAsc(DocWorkflowTemplateNode::getSortOrder)
+            .orderByAsc(DocWorkflowTemplateNode::getCreateTime));
+        boolean hasWorkloadNode = existingNodes.stream().anyMatch(node -> StringUtils.equals("workload_input", node.getNodeCode()));
+        if (hasWorkloadNode) {
+            return;
+        }
+        for (DocWorkflowTemplateNode node : existingNodes) {
+            if (node.getSortOrder() != null && node.getSortOrder() >= 4) {
+                node.setSortOrder(node.getSortOrder() + 1);
+                nodeMapper.updateById(node);
+            }
+        }
+        createDefaultNode(templateId, 4, "workload_input", "工作量录入",
+            List.of(task("workload_fill", "录入工作量记录", "form_fill", true, 1,
+                DocWorkflowTaskCompletionRule.WORKLOAD_EXISTS.getCode(), null)));
     }
 
     private void createDefaultNode(Long templateId, int sortOrder, String nodeCode, String nodeName, List<DocWorkflowNodeTask> tasks) {
@@ -496,6 +523,9 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             case VISA_EXISTS -> hasIncludedVisa(project.getId())
                 ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode())
                 : TaskCompletionEvaluation.autoPending();
+            case WORKLOAD_EXISTS -> hasEnabledWorkload(project.getId())
+                ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode())
+                : TaskCompletionEvaluation.autoPending();
             case ESTIMATE_SNAPSHOT_EXISTS -> {
                 DocProjectEstimateSnapshotVo snapshot = queryLatestEstimateSnapshot(project.getId());
                 yield snapshot != null
@@ -518,6 +548,12 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         return visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>()
             .eq(DocProjectVisa::getProjectId, projectId)
             .eq(DocProjectVisa::getIncludeInProject, true)) > 0;
+    }
+
+    private boolean hasEnabledWorkload(Long projectId) {
+        return addRecordMapper.selectCount(new LambdaQueryWrapper<DocProjectAddRecord>()
+            .eq(DocProjectAddRecord::getProjectId, projectId)
+            .eq(DocProjectAddRecord::getEnable, true)) > 0;
     }
 
     private boolean hasBalanceAdjustment(Long projectId) {
@@ -728,6 +764,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             case "project_info_fill" -> DocWorkflowTaskCompletionRule.PROJECT_BASIC_INFO_PRESENT;
             case "drawing_fill" -> DocWorkflowTaskCompletionRule.DRAWING_EXISTS;
             case "visa_fill" -> DocWorkflowTaskCompletionRule.VISA_EXISTS;
+            case "workload_fill" -> DocWorkflowTaskCompletionRule.WORKLOAD_EXISTS;
             case "estimate_run" -> DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS;
             case "manager_adjust" -> DocWorkflowTaskCompletionRule.BALANCE_ADJUSTMENT_EXISTS;
             default -> null;

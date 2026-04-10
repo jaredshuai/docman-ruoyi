@@ -13,6 +13,7 @@ import org.dromara.docman.domain.bo.DocProjectNodeTaskCompleteBo;
 import org.dromara.docman.domain.entity.DocNodeContext;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
+import org.dromara.docman.domain.entity.DocProjectAddRecord;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
@@ -26,6 +27,7 @@ import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.vo.DocProjectEstimateSnapshotVo;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
+import org.dromara.docman.mapper.DocProjectAddRecordMapper;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
@@ -75,6 +77,7 @@ class DocProjectWorkspaceServiceImplTest {
         initTableInfo(DocProject.class);
         initTableInfo(DocDocumentRecord.class);
         initTableInfo(DocProjectBalanceAdjustment.class);
+        initTableInfo(DocProjectAddRecord.class);
         initTableInfo(DocProjectDrawing.class);
         initTableInfo(DocProjectEstimateSnapshot.class);
         initTableInfo(DocProjectNodeTaskRuntime.class);
@@ -96,6 +99,7 @@ class DocProjectWorkspaceServiceImplTest {
     @Mock private DocProjectDrawingMapper drawingMapper;
     @Mock private DocDocumentRecordMapper documentRecordMapper;
     @Mock private DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
+    @Mock private DocProjectAddRecordMapper addRecordMapper;
     @Mock private DocProjectVisaMapper visaMapper;
     @Mock private DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     @Mock private INodeContextService nodeContextService;
@@ -197,6 +201,35 @@ class DocProjectWorkspaceServiceImplTest {
     }
 
     @Test
+    void shouldRejectManualCompleteWhenWorkloadMissing() {
+        Long projectId = 1L;
+        Long taskRuntimeId = 6L;
+        DocProject project = project(projectId);
+        DocProjectRuntime projectRuntime = runtime(projectId, 10L, "workload_input");
+        DocProjectNodeTaskRuntime runtime = new DocProjectNodeTaskRuntime();
+        runtime.setId(taskRuntimeId);
+        runtime.setProjectId(projectId);
+        runtime.setNodeCode("workload_input");
+        runtime.setTaskCode("workload_fill");
+        runtime.setStatus("pending");
+
+        DocProjectNodeTaskCompleteBo bo = new DocProjectNodeTaskCompleteBo();
+        bo.setEvidenceRef("manual-workload");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(projectRuntime);
+        when(taskRuntimeMapper.selectById(taskRuntimeId)).thenReturn(runtime);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node(10L, "workload_input")));
+        when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(task("workload_fill", "form_fill", true, "workload_exists", null));
+        when(addRecordMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.completeTask(projectId, taskRuntimeId, bo));
+
+        assertEquals("当前事项需先满足业务数据条件后才能完成", ex.getMessage());
+        verify(taskRuntimeMapper, never()).updateById(runtime);
+    }
+
+    @Test
     void shouldAutoCompleteDrawingTaskWhenIncludedDrawingExists() {
         Long projectId = 1L;
         DocProject project = project(projectId);
@@ -262,6 +295,39 @@ class DocProjectWorkspaceServiceImplTest {
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(balanceAdjustmentMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        var workspace = service.getWorkspace(projectId);
+
+        assertEquals("completed", workspace.getCurrentNodeTasks().get(0).getStatus());
+        verify(taskRuntimeMapper).updateById(taskRuntime);
+    }
+
+    @Test
+    void shouldAutoCompleteWorkloadTaskWhenEnabledWorkloadExists() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "workload_input");
+        DocWorkflowTemplate template = new DocWorkflowTemplate();
+        template.setId(10L);
+        DocWorkflowTemplateNode node = node(10L, "workload_input");
+        DocWorkflowNodeTask definition = task("workload_fill", "form_fill", true, "workload_exists", null);
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(33L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("workload_input");
+        taskRuntime.setTaskCode("workload_fill");
+        taskRuntime.setStatus("pending");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(templateMapper.selectById(10L)).thenReturn(template);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node), List.of(node), List.of(node));
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition), List.of(definition), List.of(definition));
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
+        when(addRecordMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
         when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         var workspace = service.getWorkspace(projectId);
