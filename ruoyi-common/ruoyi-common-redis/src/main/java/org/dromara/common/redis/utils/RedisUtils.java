@@ -6,6 +6,8 @@ import org.dromara.common.core.utils.SpringUtils;
 import org.redisson.api.*;
 import org.redisson.api.options.KeysScanOptions;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -25,7 +27,17 @@ import java.util.stream.Stream;
 @SuppressWarnings(value = {"unchecked", "rawtypes"})
 public class RedisUtils {
 
-    private static final RedissonClient CLIENT = SpringUtils.getBean(RedissonClient.class);
+    private static final RedissonClient CLIENT = (RedissonClient) Proxy.newProxyInstance(
+        RedissonClient.class.getClassLoader(),
+        new Class<?>[]{RedissonClient.class},
+        (proxy, method, args) -> {
+            try {
+                return method.invoke(SpringUtils.getBean(RedissonClient.class), args);
+            } catch (InvocationTargetException ex) {
+                throw ex.getTargetException();
+            }
+        }
+    );
 
     /**
      * 限流
