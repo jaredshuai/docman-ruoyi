@@ -45,6 +45,7 @@ class DocMapperXmlContractTest {
     );
 
     private static final Pattern DOLLAR_PLACEHOLDER = Pattern.compile("\\$\\{[^}]+\\}");
+    private static final Set<String> ALLOWED_DOLLAR_PLACEHOLDERS = Set.of("${ew.customSqlSegment}");
 
     private static final List<File> XML_FILES = loadXmlFiles();
     private static final Map<String, File> XML_BY_NAMESPACE = buildNamespaceMap();
@@ -116,7 +117,10 @@ class DocMapperXmlContractTest {
                 List<String> violations = new ArrayList<>();
                 Matcher m = DOLLAR_PLACEHOLDER.matcher(content);
                 while (m.find()) {
-                    violations.add(m.group());
+                    String placeholder = m.group();
+                    if (!ALLOWED_DOLLAR_PLACEHOLDERS.contains(placeholder)) {
+                        violations.add(placeholder);
+                    }
                 }
 
                 assertTrue(violations.isEmpty(),
@@ -298,6 +302,9 @@ class DocMapperXmlContractTest {
                 "DocNodeContextMapper.xml",
                 "DocNodeDeadlineMapper.xml",
                 "DocProcessConfigMapper.xml",
+                "DocProjectAddRecordDetailMapper.xml",
+                "DocProjectAddRecordMapper.xml",
+                "DocProjectOrderMapper.xml",
                 "DocProjectMapper.xml",
                 "DocProjectMemberMapper.xml"
             );

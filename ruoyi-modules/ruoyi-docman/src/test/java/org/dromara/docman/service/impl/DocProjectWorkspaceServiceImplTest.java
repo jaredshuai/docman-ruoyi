@@ -253,7 +253,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L, 1L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         var workspace = service.getWorkspace(projectId);
 
@@ -295,7 +295,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(balanceAdjustmentMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         var workspace = service.getWorkspace(projectId);
 
@@ -328,7 +328,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(addRecordMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         var workspace = service.getWorkspace(projectId);
 
@@ -376,7 +376,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         when(documentRecordMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(latestArtifact);
 
         var workspace = service.getWorkspace(projectId);
@@ -403,10 +403,10 @@ class DocProjectWorkspaceServiceImplTest {
         taskRuntime.setNodeCode("initial_estimate");
         taskRuntime.setTaskCode("estimate_run");
         taskRuntime.setStatus("pending");
-        DocProjectEstimateSnapshotVo snapshotVo = new DocProjectEstimateSnapshotVo();
-        snapshotVo.setId(99L);
-        snapshotVo.setProjectId(projectId);
-        snapshotVo.setEstimateAmount(new BigDecimal("1234"));
+        DocProjectEstimateSnapshot snapshot = new DocProjectEstimateSnapshot();
+        snapshot.setId(99L);
+        snapshot.setProjectId(projectId);
+        snapshot.setEstimateAmount(new BigDecimal("1234"));
 
         NodeContextReader reader = mock(NodeContextReader.class);
         DocNodeContext nodeContext = mock(DocNodeContext.class);
@@ -420,7 +420,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectById(8L)).thenReturn(taskRuntime);
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(3L, 3L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L, 1L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null, snapshotVo);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null, snapshot);
         when(nodeContextService.getOrCreate(runtimeId, "initial_estimate", projectId)).thenReturn(nodeContext);
         when(nodeContext.getId()).thenReturn(66L);
         when(nodeContextService.buildReader(runtimeId)).thenReturn(reader);
@@ -472,7 +472,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node(10L, "export_text")));
         when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
 
@@ -507,9 +507,9 @@ class DocProjectWorkspaceServiceImplTest {
         taskRuntime.setNodeCode("export_text");
         taskRuntime.setTaskCode("export_run");
         taskRuntime.setStatus("pending");
-        DocProjectEstimateSnapshotVo snapshotVo = new DocProjectEstimateSnapshotVo();
-        snapshotVo.setId(101L);
-        snapshotVo.setProjectId(projectId);
+        DocProjectEstimateSnapshot snapshot = new DocProjectEstimateSnapshot();
+        snapshot.setId(101L);
+        snapshot.setProjectId(projectId);
 
         DocNodeContext nodeContext = mock(DocNodeContext.class);
 
@@ -519,7 +519,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
         when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(definition, definition);
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime), List.of(taskRuntime));
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(snapshotVo);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(snapshot);
         when(nodeContextService.getOrCreate(runtimeId, "export_text", projectId)).thenReturn(nodeContext);
         when(nodeContext.getId()).thenReturn(77L);
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(2L);
@@ -558,9 +558,9 @@ class DocProjectWorkspaceServiceImplTest {
         taskRuntime.setNodeCode("export_text");
         taskRuntime.setTaskCode("export_run");
         taskRuntime.setStatus("pending");
-        DocProjectEstimateSnapshotVo snapshotVo = new DocProjectEstimateSnapshotVo();
-        snapshotVo.setId(102L);
-        snapshotVo.setProjectId(projectId);
+        DocProjectEstimateSnapshot snapshot = new DocProjectEstimateSnapshot();
+        snapshot.setId(102L);
+        snapshot.setProjectId(projectId);
 
         DocNodeContext nodeContext = mock(DocNodeContext.class);
 
@@ -570,7 +570,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
         when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(definition, definition);
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime), List.of(taskRuntime));
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(snapshotVo);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(snapshot);
         when(nodeContextService.getOrCreate(100L, "export_text", projectId)).thenReturn(nodeContext);
         when(nodeContext.getId()).thenReturn(77L);
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(2L);
