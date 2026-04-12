@@ -302,8 +302,6 @@ class DocMapperXmlContractTest {
                 "DocNodeContextMapper.xml",
                 "DocNodeDeadlineMapper.xml",
                 "DocProcessConfigMapper.xml",
-                "DocProjectAddRecordDetailMapper.xml",
-                "DocProjectAddRecordMapper.xml",
                 "DocProjectOrderMapper.xml",
                 "DocProjectMapper.xml",
                 "DocProjectMemberMapper.xml"
