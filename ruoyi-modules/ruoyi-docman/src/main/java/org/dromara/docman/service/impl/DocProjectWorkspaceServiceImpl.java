@@ -12,8 +12,8 @@ import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocDocumentRecord;
 import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
+import org.dromara.docman.domain.entity.DocProjectDrawingWorkItem;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
-import org.dromara.docman.domain.entity.DocProjectAddRecord;
 import org.dromara.docman.domain.entity.DocProjectType;
 import org.dromara.docman.domain.entity.DocProjectNodeTaskRuntime;
 import org.dromara.docman.domain.entity.DocProjectRuntime;
@@ -36,12 +36,12 @@ import org.dromara.docman.mapper.DocProjectDrawingMapper;
 import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
-import org.dromara.docman.mapper.DocProjectAddRecordMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
 import org.dromara.docman.mapper.DocProjectRuntimeMapper;
 import org.dromara.docman.mapper.DocProjectTypeMapper;
 import org.dromara.docman.mapper.DocProjectVisaMapper;
+import org.dromara.docman.mapper.DocProjectDrawingWorkItemMapper;
 import org.dromara.docman.mapper.DocWorkflowNodeTaskMapper;
 import org.dromara.docman.mapper.DocWorkflowTemplateMapper;
 import org.dromara.docman.mapper.DocWorkflowTemplateNodeMapper;
@@ -76,7 +76,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     private final DocProjectDrawingMapper drawingMapper;
     private final DocDocumentRecordMapper documentRecordMapper;
     private final DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
-    private final DocProjectAddRecordMapper addRecordMapper;
+    private final DocProjectDrawingWorkItemMapper drawingWorkItemMapper;
     private final DocProjectVisaMapper visaMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final INodeContextService nodeContextService;
@@ -551,9 +551,20 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     }
 
     private boolean hasEnabledWorkload(Long projectId) {
-        return addRecordMapper.selectCount(new LambdaQueryWrapper<DocProjectAddRecord>()
-            .eq(DocProjectAddRecord::getProjectId, projectId)
-            .eq(DocProjectAddRecord::getEnable, true)) > 0;
+        List<Long> includedDrawingIds = drawingMapper.selectList(new LambdaQueryWrapper<DocProjectDrawing>()
+                .select(DocProjectDrawing::getId)
+                .eq(DocProjectDrawing::getProjectId, projectId)
+                .eq(DocProjectDrawing::getIncludeInProject, true))
+            .stream()
+            .map(DocProjectDrawing::getId)
+            .toList();
+        if (includedDrawingIds.isEmpty()) {
+            return false;
+        }
+        return drawingWorkItemMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+            .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
+            .in(DocProjectDrawingWorkItem::getDrawingId, includedDrawingIds)
+            .eq(DocProjectDrawingWorkItem::getIncludeInEstimate, true)) > 0;
     }
 
     private boolean hasBalanceAdjustment(Long projectId) {

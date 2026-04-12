@@ -29,6 +29,7 @@ import org.dromara.docman.mapper.DocDocumentRecordMapper;
 import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectAddRecordMapper;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
+import org.dromara.docman.mapper.DocProjectDrawingWorkItemMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
@@ -99,7 +100,7 @@ class DocProjectWorkspaceServiceImplTest {
     @Mock private DocProjectDrawingMapper drawingMapper;
     @Mock private DocDocumentRecordMapper documentRecordMapper;
     @Mock private DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
-    @Mock private DocProjectAddRecordMapper addRecordMapper;
+    @Mock private DocProjectDrawingWorkItemMapper drawingWorkItemMapper;
     @Mock private DocProjectVisaMapper visaMapper;
     @Mock private DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     @Mock private INodeContextService nodeContextService;
@@ -221,7 +222,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectById(taskRuntimeId)).thenReturn(runtime);
         when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node(10L, "workload_input")));
         when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(task("workload_fill", "form_fill", true, "workload_exists", null));
-        when(addRecordMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(drawingMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.completeTask(projectId, taskRuntimeId, bo));
 
@@ -327,7 +328,12 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
-        when(addRecordMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+        DocProjectDrawing drawing = new DocProjectDrawing();
+        drawing.setId(101L);
+        drawing.setProjectId(projectId);
+        drawing.setIncludeInProject(true);
+        when(drawingMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(drawing));
+        when(drawingWorkItemMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
         when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         var workspace = service.getWorkspace(projectId);

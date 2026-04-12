@@ -32,6 +32,18 @@ public class DocProjectDrawingWorkItemController extends BaseController {
     private final DocProjectDrawingWorkItemApplicationService applicationService;
 
     /**
+     * 查询项目下全部图纸工作量映射列表。
+     *
+     * @param projectId 项目ID
+     * @return 图纸工作量映射列表
+     */
+    @SaCheckPermission("docman:project:query")
+    @GetMapping("/project-list")
+    public R<List<DocProjectDrawingWorkItemVo>> listByProject(@RequestParam Long projectId) {
+        return R.ok(queryApplicationService.listByProject(projectId));
+    }
+
+    /**
      * 查询图纸工作量映射列表。
      *
      * @param projectId 项目ID
