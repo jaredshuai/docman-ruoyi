@@ -43,32 +43,32 @@ class DocProjectDrawingWorkItemServiceImplTest {
 
     @Test
     void shouldListWorkItemsByProject() {
-        DocProjectDrawingWorkItemVo first = new DocProjectDrawingWorkItemVo();
+        DocProjectDrawingWorkItem first = new DocProjectDrawingWorkItem();
         first.setId(1L);
         first.setDrawingId(10L);
-        DocProjectDrawingWorkItemVo second = new DocProjectDrawingWorkItemVo();
+        DocProjectDrawingWorkItem second = new DocProjectDrawingWorkItem();
         second.setId(2L);
         second.setDrawingId(11L);
-        when(workItemMapper.selectVoList(any(LambdaQueryWrapper.class))).thenReturn(List.of(first, second));
+        when(workItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(first, second));
 
         List<DocProjectDrawingWorkItemVo> result = service.listByProject(7L);
 
         assertEquals(2, result.size());
         verify(projectAccessService).assertAction(7L, DocProjectAction.VIEW_PROJECT);
-        verify(workItemMapper).selectVoList(any(LambdaQueryWrapper.class));
+        verify(workItemMapper).selectList(any(LambdaQueryWrapper.class));
     }
 
     @Test
     void shouldListWorkItemsByDrawing() {
-        DocProjectDrawingWorkItemVo item = new DocProjectDrawingWorkItemVo();
+        DocProjectDrawingWorkItem item = new DocProjectDrawingWorkItem();
         item.setId(3L);
-        when(workItemMapper.selectVoList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
+        when(workItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
 
         List<DocProjectDrawingWorkItemVo> result = service.listByDrawing(7L, 8L);
 
         assertEquals(1, result.size());
         verify(projectAccessService).assertAction(7L, DocProjectAction.VIEW_PROJECT);
-        verify(workItemMapper).selectVoList(any(LambdaQueryWrapper.class));
+        verify(workItemMapper).selectList(any(LambdaQueryWrapper.class));
         verify(drawingMapper, never()).selectById(any());
     }
 

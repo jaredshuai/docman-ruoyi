@@ -15,6 +15,7 @@ import org.dromara.docman.service.IDocProjectDrawingWorkItemService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -28,19 +29,19 @@ public class DocProjectDrawingWorkItemServiceImpl implements IDocProjectDrawingW
     @Override
     public List<DocProjectDrawingWorkItemVo> listByProject(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return workItemMapper.selectVoList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+        return toVos(workItemMapper.selectList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
             .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
             .orderByAsc(DocProjectDrawingWorkItem::getDrawingId)
-            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime));
+            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime)));
     }
 
     @Override
     public List<DocProjectDrawingWorkItemVo> listByDrawing(Long projectId, Long drawingId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return workItemMapper.selectVoList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+        return toVos(workItemMapper.selectList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
             .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
             .eq(DocProjectDrawingWorkItem::getDrawingId, drawingId)
-            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime));
+            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime)));
     }
 
     @Override
@@ -91,5 +92,30 @@ public class DocProjectDrawingWorkItemServiceImpl implements IDocProjectDrawingW
                 }
             }
         }
+    }
+
+    private List<DocProjectDrawingWorkItemVo> toVos(List<DocProjectDrawingWorkItem> entities) {
+        List<DocProjectDrawingWorkItemVo> result = new ArrayList<>();
+        for (DocProjectDrawingWorkItem entity : entities) {
+            result.add(toVo(entity));
+        }
+        return result;
+    }
+
+    private DocProjectDrawingWorkItemVo toVo(DocProjectDrawingWorkItem entity) {
+        DocProjectDrawingWorkItemVo vo = new DocProjectDrawingWorkItemVo();
+        vo.setId(entity.getId());
+        vo.setProjectId(entity.getProjectId());
+        vo.setDrawingId(entity.getDrawingId());
+        vo.setWorkItemCode(entity.getWorkItemCode());
+        vo.setWorkItemName(entity.getWorkItemName());
+        vo.setCategory(entity.getCategory());
+        vo.setUnit(entity.getUnit());
+        vo.setQuantity(entity.getQuantity());
+        vo.setIncludeInEstimate(entity.getIncludeInEstimate());
+        vo.setRemark(entity.getRemark());
+        vo.setCreateTime(entity.getCreateTime());
+        vo.setUpdateTime(entity.getUpdateTime());
+        return vo;
     }
 }
