@@ -26,6 +26,15 @@ public class DocProjectDrawingWorkItemServiceImpl implements IDocProjectDrawingW
     private final IDocProjectAccessService projectAccessService;
 
     @Override
+    public List<DocProjectDrawingWorkItemVo> listByProject(Long projectId) {
+        projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
+        return workItemMapper.selectVoList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+            .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
+            .orderByAsc(DocProjectDrawingWorkItem::getDrawingId)
+            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime));
+    }
+
+    @Override
     public List<DocProjectDrawingWorkItemVo> listByDrawing(Long projectId, Long drawingId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
         return workItemMapper.selectVoList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
