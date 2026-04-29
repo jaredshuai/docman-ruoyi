@@ -563,8 +563,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         }
         return drawingWorkItemMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
             .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
-            .in(DocProjectDrawingWorkItem::getDrawingId, includedDrawingIds)
-            .eq(DocProjectDrawingWorkItem::getIncludeInEstimate, true)) > 0;
+            .in(DocProjectDrawingWorkItem::getDrawingId, includedDrawingIds)) > 0;
     }
 
     private boolean hasBalanceAdjustment(Long projectId) {
