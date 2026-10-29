@@ -139,6 +139,71 @@ CREATE TABLE doc_plugin_execution_log (
     KEY idx_plugin (plugin_id)
 ) ENGINE=InnoDB COMMENT='插件执行日志表';
 
+-- 电信工作量基础维护表
+CREATE TABLE doc_telecom_workload_item (
+    id                              BIGINT          NOT NULL COMMENT '工作量基础项ID',
+    item_code                       VARCHAR(64)     COMMENT '工作量编码',
+    item_name                       VARCHAR(255)    NOT NULL COMMENT '工作量名称',
+    tenant_id                       VARCHAR(20)     NOT NULL DEFAULT '000000' COMMENT '租户编号',
+    category                        VARCHAR(64)     COMMENT '分类',
+    unit                            VARCHAR(32)     COMMENT '单位',
+    default_price                   DECIMAL(20,5)   COMMENT '默认单价',
+    technician                      DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '技工',
+    technician_coefficient          DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '技工系数',
+    general_worker                  DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '普工',
+    general_worker_coefficient      DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '普工系数',
+    machine_shift                   DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '机械台班',
+    machine_shift_unit_price        DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '机械台班单价',
+    machine_shift_coefficient       DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '机械台班系数',
+    instrument_shift                DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '仪器仪表台班',
+    instrument_shift_unit_price     DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '仪器仪表台班单价',
+    instrument_shift_coefficient    DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '仪器仪表系数',
+    material_quantity               DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '材料数量',
+    material_unit_price             DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '材料单价',
+    description                     VARCHAR(500)    COMMENT '说明',
+    sort_order                      INT             DEFAULT 0 COMMENT '排序',
+    status                          VARCHAR(20)     NOT NULL DEFAULT 'active' COMMENT '状态',
+    create_dept                     BIGINT          COMMENT '创建部门',
+    create_by                       BIGINT          COMMENT '创建者',
+    create_time                     DATETIME        COMMENT '创建时间',
+    update_by                       BIGINT          COMMENT '更新者',
+    update_time                     DATETIME        COMMENT '更新时间',
+    del_flag                        CHAR(1)         DEFAULT '0' COMMENT '删除标志（0正常 1删除）',
+    PRIMARY KEY (id),
+    KEY idx_workload_item_name (item_name),
+    KEY idx_workload_item_status_sort (status, sort_order)
+) ENGINE=InnoDB COMMENT='电信工作量基础维护表';
+
+-- 项目图纸工作量项表
+CREATE TABLE doc_project_drawing_work_item (
+    id                              BIGINT          NOT NULL COMMENT '图纸工作量ID',
+    project_id                      BIGINT          NOT NULL COMMENT '项目ID',
+    tenant_id                       VARCHAR(20)     NOT NULL DEFAULT '000000' COMMENT '租户编号',
+    drawing_id                      BIGINT          NOT NULL COMMENT '图纸ID',
+    work_item_name                  VARCHAR(255)    NOT NULL COMMENT '工作量名称',
+    technician                      DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '技工',
+    technician_coefficient          DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '技工系数',
+    general_worker                  DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '普工',
+    general_worker_coefficient      DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '普工系数',
+    machine_shift                   DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '机械台班',
+    machine_shift_unit_price        DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '机械台班单价',
+    machine_shift_coefficient       DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '机械台班系数',
+    instrument_shift                DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '仪器仪表台班',
+    instrument_shift_unit_price     DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '仪器仪表台班单价',
+    instrument_shift_coefficient    DECIMAL(20,5)   NOT NULL DEFAULT 1 COMMENT '仪器仪表系数',
+    material_quantity               DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '材料数量',
+    material_unit_price             DECIMAL(20,5)   NOT NULL DEFAULT 0 COMMENT '材料单价',
+    create_dept                     BIGINT          COMMENT '创建部门',
+    create_by                       BIGINT          COMMENT '创建者',
+    create_time                     DATETIME        COMMENT '创建时间',
+    update_by                       BIGINT          COMMENT '更新者',
+    update_time                     DATETIME        COMMENT '更新时间',
+    del_flag                        CHAR(1)         DEFAULT '0' COMMENT '删除标志（0正常 1删除）',
+    PRIMARY KEY (id),
+    KEY idx_drawing_work_item_project (project_id),
+    KEY idx_drawing_work_item_drawing (drawing_id)
+) ENGINE=InnoDB COMMENT='项目图纸工作量项表';
+
 -- ==========================================
 -- 菜单与权限
 -- ==========================================
@@ -182,6 +247,18 @@ VALUES (3031, '执行归档', 3030, 1, 'F', 'docman:archive:execute', 1, NOW());
 -- 插件管理
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, menu_type, perms, icon, create_by, create_time)
 VALUES (3040, '插件列表', 3000, 5, 'plugin', 'docman/plugin/index', 'C', 'docman:plugin:list', 'component', 1, NOW());
+
+-- 工作量基础维护
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, path, component, menu_type, perms, icon, create_by, create_time)
+VALUES (3060, '工作量基础维护', 3000, 7, 'workload-item', 'docman/workloadItem/index', 'C', 'docman:workload-item:list', 'table', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3061, '工作量查询', 3060, 1, 'F', 'docman:workload-item:query', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3062, '工作量新增', 3060, 2, 'F', 'docman:workload-item:edit', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3063, '工作量修改', 3060, 3, 'F', 'docman:workload-item:edit', 1, NOW());
+INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)
+VALUES (3064, '工作量删除', 3060, 4, 'F', 'docman:workload-item:remove', 1, NOW());
 
 -- 文档详情查询权限
 INSERT INTO sys_menu (menu_id, menu_name, parent_id, order_num, menu_type, perms, create_by, create_time)

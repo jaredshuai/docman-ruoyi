@@ -13,6 +13,7 @@ import org.dromara.docman.service.IDocProjectVisaService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,9 +26,14 @@ public class DocProjectVisaServiceImpl implements IDocProjectVisaService {
     @Override
     public List<DocProjectVisaVo> listByProject(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return visaMapper.selectVoList(new LambdaQueryWrapper<DocProjectVisa>()
+        List<DocProjectVisa> entities = visaMapper.selectList(new LambdaQueryWrapper<DocProjectVisa>()
             .eq(DocProjectVisa::getProjectId, projectId)
             .orderByAsc(DocProjectVisa::getCreateTime));
+        List<DocProjectVisaVo> result = new ArrayList<>(entities.size());
+        for (DocProjectVisa entity : entities) {
+            result.add(toVo(entity));
+        }
+        return result;
     }
 
     @Override

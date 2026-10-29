@@ -11,11 +11,15 @@ import org.dromara.docman.service.IDocTelecomWorkloadItemService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DocTelecomWorkloadItemServiceImpl implements IDocTelecomWorkloadItemService {
+
+    private static final BigDecimal DEFAULT_QUANTITY = BigDecimal.ZERO;
+    private static final BigDecimal DEFAULT_COEFFICIENT = BigDecimal.ONE;
 
     private final DocTelecomWorkloadItemMapper workloadItemMapper;
 
@@ -45,6 +49,18 @@ public class DocTelecomWorkloadItemServiceImpl implements IDocTelecomWorkloadIte
         entity.setCategory(bo.getCategory());
         entity.setUnit(bo.getUnit());
         entity.setDefaultPrice(bo.getDefaultPrice());
+        entity.setTechnician(defaultQuantity(bo.getTechnician()));
+        entity.setTechnicianCoefficient(defaultCoefficient(bo.getTechnicianCoefficient()));
+        entity.setGeneralWorker(defaultQuantity(bo.getGeneralWorker()));
+        entity.setGeneralWorkerCoefficient(defaultCoefficient(bo.getGeneralWorkerCoefficient()));
+        entity.setMachineShift(defaultQuantity(bo.getMachineShift()));
+        entity.setMachineShiftUnitPrice(defaultQuantity(bo.getMachineShiftUnitPrice()));
+        entity.setMachineShiftCoefficient(defaultCoefficient(bo.getMachineShiftCoefficient()));
+        entity.setInstrumentShift(defaultQuantity(bo.getInstrumentShift()));
+        entity.setInstrumentShiftUnitPrice(defaultQuantity(bo.getInstrumentShiftUnitPrice()));
+        entity.setInstrumentShiftCoefficient(defaultCoefficient(bo.getInstrumentShiftCoefficient()));
+        entity.setMaterialQuantity(defaultQuantity(bo.getMaterialQuantity()));
+        entity.setMaterialUnitPrice(defaultQuantity(bo.getMaterialUnitPrice()));
         entity.setDescription(bo.getDescription());
         entity.setSortOrder(bo.getSortOrder());
         entity.setStatus((bo.getStatus() == null || bo.getStatus().isBlank()) ? "active" : bo.getStatus());
@@ -62,5 +78,13 @@ public class DocTelecomWorkloadItemServiceImpl implements IDocTelecomWorkloadIte
         if (ids != null) {
             ids.forEach(workloadItemMapper::deleteById);
         }
+    }
+
+    private BigDecimal defaultQuantity(BigDecimal value) {
+        return value == null ? DEFAULT_QUANTITY : value;
+    }
+
+    private BigDecimal defaultCoefficient(BigDecimal value) {
+        return value == null ? DEFAULT_COEFFICIENT : value;
     }
 }

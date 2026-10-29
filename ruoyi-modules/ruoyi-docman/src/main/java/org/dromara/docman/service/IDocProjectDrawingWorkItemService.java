@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface IDocProjectDrawingWorkItemService {
 
+    List<DocProjectDrawingWorkItemVo> listByProject(Long projectId);
+
     List<DocProjectDrawingWorkItemVo> listByDrawing(Long projectId, Long drawingId);
 
     Long save(DocProjectDrawingWorkItemBo bo);

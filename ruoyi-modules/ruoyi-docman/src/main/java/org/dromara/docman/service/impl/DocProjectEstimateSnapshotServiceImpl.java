@@ -18,10 +18,11 @@ public class DocProjectEstimateSnapshotServiceImpl implements IDocProjectEstimat
 
     @Override
     public DocProjectEstimateSnapshotVo queryLatest(Long projectId) {
-        return estimateSnapshotMapper.selectVoOne(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
+        DocProjectEstimateSnapshot snapshot = estimateSnapshotMapper.selectOne(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
             .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
             .orderByDesc(DocProjectEstimateSnapshot::getCreateTime)
             .last("limit 1"));
+        return snapshot == null ? null : toVo(snapshot);
     }
 
     @Override
@@ -37,5 +38,19 @@ public class DocProjectEstimateSnapshotServiceImpl implements IDocProjectEstimat
         snapshot.setSummary(summary);
         estimateSnapshotMapper.insert(snapshot);
         return snapshot.getId();
+    }
+
+    private DocProjectEstimateSnapshotVo toVo(DocProjectEstimateSnapshot snapshot) {
+        DocProjectEstimateSnapshotVo vo = new DocProjectEstimateSnapshotVo();
+        vo.setId(snapshot.getId());
+        vo.setProjectId(snapshot.getProjectId());
+        vo.setEstimateType(snapshot.getEstimateType());
+        vo.setEstimateAmount(snapshot.getEstimateAmount());
+        vo.setDrawingCount(snapshot.getDrawingCount());
+        vo.setVisaCount(snapshot.getVisaCount());
+        vo.setStatus(snapshot.getStatus());
+        vo.setSummary(snapshot.getSummary());
+        vo.setCreateTime(snapshot.getCreateTime());
+        return vo;
     }
 }

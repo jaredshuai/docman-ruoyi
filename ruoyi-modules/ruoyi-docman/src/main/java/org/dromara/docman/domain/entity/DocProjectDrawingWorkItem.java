@@ -28,19 +28,31 @@ public class DocProjectDrawingWorkItem extends BaseEntity {
 
     private Long drawingId;
 
-    private String workItemCode;
-
     private String workItemName;
 
-    private String category;
+    private BigDecimal technician;
 
-    private String unit;
+    private BigDecimal technicianCoefficient;
 
-    private BigDecimal quantity;
+    private BigDecimal generalWorker;
 
-    private Boolean includeInEstimate;
+    private BigDecimal generalWorkerCoefficient;
 
-    private String remark;
+    private BigDecimal machineShift;
+
+    private BigDecimal machineShiftUnitPrice;
+
+    private BigDecimal machineShiftCoefficient;
+
+    private BigDecimal instrumentShift;
+
+    private BigDecimal instrumentShiftUnitPrice;
+
+    private BigDecimal instrumentShiftCoefficient;
+
+    private BigDecimal materialQuantity;
+
+    private BigDecimal materialUnitPrice;
 
     @TableLogic
     private String delFlag;

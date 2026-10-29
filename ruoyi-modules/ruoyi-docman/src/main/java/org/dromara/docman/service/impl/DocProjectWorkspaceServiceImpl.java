@@ -9,7 +9,10 @@ import org.dromara.docman.application.service.DocWorkflowNodeApplicationService;
 import org.dromara.docman.domain.bo.DocProjectAdvanceNodeBo;
 import org.dromara.docman.domain.bo.DocProjectNodeTaskCompleteBo;
 import org.dromara.docman.domain.entity.DocProject;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
+import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
+import org.dromara.docman.domain.entity.DocProjectDrawingWorkItem;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
 import org.dromara.docman.domain.entity.DocProjectType;
 import org.dromara.docman.domain.entity.DocProjectNodeTaskRuntime;
@@ -24,17 +27,21 @@ import org.dromara.docman.domain.enums.DocProjectRuntimeStatus;
 import org.dromara.docman.domain.enums.DocWorkflowTaskCompletionRule;
 import org.dromara.docman.domain.service.DocProjectRuntimeStateMachine;
 import org.dromara.docman.domain.vo.DocProjectNodeTaskRuntimeVo;
+import org.dromara.docman.domain.vo.DocDocumentRecordVo;
 import org.dromara.docman.domain.vo.DocProjectEstimateSnapshotVo;
 import org.dromara.docman.domain.vo.DocProjectWorkspaceVo;
 import org.dromara.docman.domain.vo.DocWorkflowNodeTaskVo;
 import org.dromara.docman.domain.vo.DocWorkflowTemplateNodeVo;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
+import org.dromara.docman.mapper.DocDocumentRecordMapper;
+import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
 import org.dromara.docman.mapper.DocProjectRuntimeMapper;
 import org.dromara.docman.mapper.DocProjectTypeMapper;
 import org.dromara.docman.mapper.DocProjectVisaMapper;
+import org.dromara.docman.mapper.DocProjectDrawingWorkItemMapper;
 import org.dromara.docman.mapper.DocWorkflowNodeTaskMapper;
 import org.dromara.docman.mapper.DocWorkflowTemplateMapper;
 import org.dromara.docman.mapper.DocWorkflowTemplateNodeMapper;
@@ -57,7 +64,6 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     private static final String AUTO_EVIDENCE_PREFIX = "auto:";
     private static final String INITIAL_ESTIMATE_TYPE = "initial_estimate";
     private static final String EXPORT_TEXT_NODE_CODE = "export_text";
-    private static final String EXPORT_PLUGIN_ID = "telecom-export-text-mock";
 
     private final IDocProjectAccessService projectAccessService;
     private final DocProjectMapper projectMapper;
@@ -68,6 +74,9 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
     private final DocWorkflowNodeTaskMapper taskMapper;
     private final DocProjectNodeTaskRuntimeMapper taskRuntimeMapper;
     private final DocProjectDrawingMapper drawingMapper;
+    private final DocDocumentRecordMapper documentRecordMapper;
+    private final DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
+    private final DocProjectDrawingWorkItemMapper drawingWorkItemMapper;
     private final DocProjectVisaMapper visaMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final INodeContextService nodeContextService;
@@ -97,12 +106,21 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         vo.setCurrentNodeName(resolveNodeName(nodes, runtime.getCurrentNodeCode()));
         vo.setRuntimeStatus(runtime.getStatus());
         vo.setNodes(buildNodeVos(nodes));
-        vo.setCurrentNodeTasks(buildTaskRuntimeVos(projectId, runtime.getCurrentNodeCode()));
-        vo.setDrawingCount(drawingMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawing>()
-            .eq(DocProjectDrawing::getProjectId, projectId)));
-        vo.setVisaCount(visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>()
-            .eq(DocProjectVisa::getProjectId, projectId)));
-        vo.setLatestEstimateSnapshot(queryLatestEstimateSnapshot(projectId));
+        List<DocProjectNodeTaskRuntimeVo> currentNodeTasks = buildTaskRuntimeVos(projectId, runtime.getCurrentNodeCode());
+        vo.setCurrentNodeTasks(currentNodeTasks);
+        vo.setDrawingCount(queryDrawingCount(projectId, false));
+        vo.setIncludedDrawingCount(queryDrawingCount(projectId, true));
+        vo.setVisaCount(queryVisaCount(projectId, false));
+        vo.setIncludedVisaCount(queryVisaCount(projectId, true));
+        DocProjectEstimateSnapshotVo latestEstimateSnapshot = queryLatestEstimateSnapshot(projectId);
+        vo.setLatestEstimateSnapshot(latestEstimateSnapshot);
+        vo.setLatestExportArtifact(queryLatestExportArtifact(projectId, runtime.getWorkflowTemplateId()));
+        TriggerState estimateTriggerState = resolveEstimateTriggerState(currentNodeTasks);
+        vo.setEstimateTriggerReady(estimateTriggerState.ready());
+        vo.setEstimateTriggerBlockedReason(estimateTriggerState.blockedReason());
+        TriggerState exportTriggerState = resolveExportTriggerState(currentNodeTasks, latestEstimateSnapshot != null);
+        vo.setExportTriggerReady(exportTriggerState.ready());
+        vo.setExportTriggerBlockedReason(exportTriggerState.blockedReason());
         return vo;
     }
 
@@ -143,51 +161,14 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         projectAccessService.assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         DocProject project = requiredProject(projectId);
         DocProjectRuntime runtime = getOrInitRuntime(project);
-        DocProjectNodeTaskRuntime taskRuntime = taskRuntimeMapper.selectById(taskRuntimeId);
-        if (taskRuntime == null || !projectId.equals(taskRuntime.getProjectId())) {
-            throw new ServiceException("节点事项不存在");
-        }
-        assertCurrentNodeTask(runtime, taskRuntime);
-        DocWorkflowNodeTask definition = requiredTaskDefinition(runtime.getWorkflowTemplateId(),
-            taskRuntime.getNodeCode(), taskRuntime.getTaskCode());
-        if (!isPluginTask(definition)) {
-            throw new ServiceException("当前事项未配置插件执行");
-        }
-        if (definition.getPluginCodes() == null || definition.getPluginCodes().isBlank()) {
-            throw new ServiceException("该事项未绑定插件");
-        }
-
-        var contextEntity = nodeContextService.getOrCreate(runtime.getId(), taskRuntime.getNodeCode(), projectId);
-        nodeContextService.putProcessVariable(contextEntity.getId(), "projectId", projectId);
-        nodeContextService.putProcessVariable(contextEntity.getId(), "projectName", project.getName());
-        nodeContextService.putProcessVariable(contextEntity.getId(), "projectTypeCode", project.getProjectTypeCode());
-        nodeContextService.putProcessVariable(contextEntity.getId(), "drawingCount",
-            drawingMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawing>().eq(DocProjectDrawing::getProjectId, projectId)));
-        nodeContextService.putProcessVariable(contextEntity.getId(), "visaCount",
-            visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>().eq(DocProjectVisa::getProjectId, projectId)));
-        List<String> pluginCodes = parsePluginCodes(definition.getPluginCodes());
-        var results = workflowNodeApplicationService.triggerBoundPlugins(projectId, project.getName(), runtime.getId(),
-            taskRuntime.getNodeCode(), resolveNasBasePath(project), taskRuntime.getNodeCode(), pluginCodes);
-        for (var result : results) {
-            if (!result.getResult().isSuccess()) {
-                throw new ServiceException("插件执行失败: " + result.getResult().getErrorMessage());
-            }
-        }
-        if (usesEstimateSnapshotRule(definition)) {
-            saveLatestEstimateSnapshot(projectId, runtime.getId());
-            syncNodeTaskStatuses(project, runtime, taskRuntime.getNodeCode());
-            DocProjectNodeTaskRuntime refreshed = taskRuntimeMapper.selectById(taskRuntimeId);
-            if (!DocProjectNodeTaskStatus.COMPLETED.getCode().equals(refreshed.getStatus())) {
-                throw new ServiceException("估算结果未生成有效快照，事项未完成");
-            }
-            return;
-        }
-        markTaskCompleted(taskRuntime, "plugin:" + definition.getPluginCodes());
+        DocProjectNodeTaskRuntime taskRuntime = requiredTaskRuntime(projectId, taskRuntimeId);
+        executePluginTask(projectId, project, runtime, taskRuntime);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void triggerEstimate(Long projectId) {
+        projectAccessService.assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         DocProject project = requiredProject(projectId);
         DocProjectRuntime runtime = getOrInitRuntime(project);
         syncNodeTaskStatuses(project, runtime, runtime.getCurrentNodeCode());
@@ -200,12 +181,13 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
                 item.getNodeCode(), item.getTaskCode())))
             .findFirst()
             .orElseThrow(() -> new ServiceException("当前节点不支持手动初步估算"));
-        triggerTaskPlugins(projectId, estimateTaskRuntime.getId());
+        executePluginTask(projectId, project, runtime, estimateTaskRuntime);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void triggerExportText(Long projectId) {
+        projectAccessService.assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         DocProject project = requiredProject(projectId);
         DocProjectRuntime runtime = getOrInitRuntime(project);
         syncNodeTaskStatuses(project, runtime, runtime.getCurrentNodeCode());
@@ -223,11 +205,11 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .filter(item -> {
                 DocWorkflowNodeTask definition = requiredTaskDefinition(runtime.getWorkflowTemplateId(),
                     item.getNodeCode(), item.getTaskCode());
-                return isPluginTask(definition) && parsePluginCodes(definition.getPluginCodes()).contains(EXPORT_PLUGIN_ID);
+                return isPluginTask(definition) && hasBoundPlugins(definition);
             })
             .findFirst()
             .orElseThrow(() -> new ServiceException("当前节点未配置文本导出事项"));
-        triggerTaskPlugins(projectId, exportTaskRuntime.getId());
+        executePluginTask(projectId, project, runtime, exportTaskRuntime);
     }
 
     @Override
@@ -327,6 +309,7 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .eq(DocWorkflowTemplate::getDefaultFlag, true)
             .last("limit 1"));
         if (existingTemplate != null) {
+            ensureTelecomWorkloadNode(existingTemplate.getId());
             return;
         }
         DocWorkflowTemplate template = new DocWorkflowTemplate();
@@ -349,13 +332,37 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         createDefaultNode(template.getId(), 3, "visa_input", "签证录入",
             List.of(task("visa_fill", "录入签证信息", "form_fill", true, 1,
                 DocWorkflowTaskCompletionRule.VISA_EXISTS.getCode(), null)));
-        createDefaultNode(template.getId(), 4, "initial_estimate", "初步估算",
+        createDefaultNode(template.getId(), 4, "workload_input", "工作量录入",
+            List.of(task("workload_fill", "录入工作量记录", "form_fill", true, 1,
+                DocWorkflowTaskCompletionRule.WORKLOAD_EXISTS.getCode(), null)));
+        createDefaultNode(template.getId(), 5, "initial_estimate", "初步估算",
             List.of(task("estimate_run", "执行初步估算", "plugin_run", true, 1,
                 DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS.getCode(), "telecom-estimate-mock")));
-        createDefaultNode(template.getId(), 5, "manager_balance", "项目经理平料",
-            List.of(task("manager_adjust", "录入材料价格并平料", "manager_adjust", true, 1, null, null)));
-        createDefaultNode(template.getId(), 6, "export_text", "导出文本",
+        createDefaultNode(template.getId(), 6, "manager_balance", "项目经理平料",
+            List.of(task("manager_adjust", "录入材料价格并平料", "manager_adjust", true, 1,
+                DocWorkflowTaskCompletionRule.BALANCE_ADJUSTMENT_EXISTS.getCode(), null)));
+        createDefaultNode(template.getId(), 7, "export_text", "导出文本",
             List.of(task("export_run", "导出文本", "plugin_run", true, 1, null, "telecom-export-text-mock")));
+    }
+
+    private void ensureTelecomWorkloadNode(Long templateId) {
+        List<DocWorkflowTemplateNode> existingNodes = nodeMapper.selectList(new LambdaQueryWrapper<DocWorkflowTemplateNode>()
+            .eq(DocWorkflowTemplateNode::getTemplateId, templateId)
+            .orderByAsc(DocWorkflowTemplateNode::getSortOrder)
+            .orderByAsc(DocWorkflowTemplateNode::getCreateTime));
+        boolean hasWorkloadNode = existingNodes.stream().anyMatch(node -> StringUtils.equals("workload_input", node.getNodeCode()));
+        if (hasWorkloadNode) {
+            return;
+        }
+        for (DocWorkflowTemplateNode node : existingNodes) {
+            if (node.getSortOrder() != null && node.getSortOrder() >= 4) {
+                node.setSortOrder(node.getSortOrder() + 1);
+                nodeMapper.updateById(node);
+            }
+        }
+        createDefaultNode(templateId, 4, "workload_input", "工作量录入",
+            List.of(task("workload_fill", "录入工作量记录", "form_fill", true, 1,
+                DocWorkflowTaskCompletionRule.WORKLOAD_EXISTS.getCode(), null)));
     }
 
     private void createDefaultNode(Long templateId, int sortOrder, String nodeCode, String nodeName, List<DocWorkflowNodeTask> tasks) {
@@ -433,6 +440,49 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         }
     }
 
+    private void executePluginTask(Long projectId, DocProject project, DocProjectRuntime runtime,
+                                   DocProjectNodeTaskRuntime taskRuntime) {
+        assertCurrentNodeTask(runtime, taskRuntime);
+        DocWorkflowNodeTask definition = requiredTaskDefinition(runtime.getWorkflowTemplateId(),
+            taskRuntime.getNodeCode(), taskRuntime.getTaskCode());
+        if (!isPluginTask(definition)) {
+            throw new ServiceException("当前事项未配置插件执行");
+        }
+        if (!hasBoundPlugins(definition)) {
+            throw new ServiceException("该事项未绑定插件");
+        }
+
+        var contextEntity = nodeContextService.getOrCreate(runtime.getId(), taskRuntime.getNodeCode(), projectId);
+        nodeContextService.putProcessVariable(contextEntity.getId(), "projectId", projectId);
+        nodeContextService.putProcessVariable(contextEntity.getId(), "projectName", project.getName());
+        nodeContextService.putProcessVariable(contextEntity.getId(), "projectTypeCode", project.getProjectTypeCode());
+        nodeContextService.putProcessVariable(contextEntity.getId(), "drawingCount",
+            drawingMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawing>().eq(DocProjectDrawing::getProjectId, projectId)));
+        nodeContextService.putProcessVariable(contextEntity.getId(), "visaCount",
+            visaMapper.selectCount(new LambdaQueryWrapper<DocProjectVisa>().eq(DocProjectVisa::getProjectId, projectId)));
+        List<String> pluginCodes = parsePluginCodes(definition.getPluginCodes());
+        var results = workflowNodeApplicationService.triggerBoundPlugins(projectId, project.getName(), runtime.getId(),
+            taskRuntime.getNodeCode(), resolveNasBasePath(project), taskRuntime.getNodeCode(), pluginCodes);
+        for (var result : results) {
+            if (!result.getResult().isSuccess()) {
+                throw new ServiceException("插件执行失败: " + result.getResult().getErrorMessage());
+            }
+        }
+        if (usesEstimateSnapshotRule(definition)) {
+            saveLatestEstimateSnapshot(projectId, runtime.getId());
+            syncNodeTaskStatuses(project, runtime, taskRuntime.getNodeCode());
+            DocProjectNodeTaskRuntime refreshed = taskRuntimeMapper.selectById(taskRuntime.getId());
+            if (!DocProjectNodeTaskStatus.COMPLETED.getCode().equals(refreshed.getStatus())) {
+                throw new ServiceException("估算结果未生成有效快照，事项未完成");
+            }
+            return;
+        }
+        if (requiresGeneratedArtifact(taskRuntime) && !hasGeneratedArtifacts(results)) {
+            throw new ServiceException("文本导出未生成有效产物，事项未完成");
+        }
+        markTaskCompleted(taskRuntime, "plugin:" + definition.getPluginCodes());
+    }
+
     private void updateTaskRuntimeStatus(DocProjectNodeTaskRuntime taskRuntime, TaskCompletionEvaluation evaluation) {
         if (evaluation.completed()) {
             if (DocProjectNodeTaskStatus.COMPLETED.getCode().equals(taskRuntime.getStatus())
@@ -473,12 +523,18 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             case VISA_EXISTS -> hasIncludedVisa(project.getId())
                 ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode())
                 : TaskCompletionEvaluation.autoPending();
+            case WORKLOAD_EXISTS -> hasEnabledWorkload(project.getId())
+                ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode())
+                : TaskCompletionEvaluation.autoPending();
             case ESTIMATE_SNAPSHOT_EXISTS -> {
                 DocProjectEstimateSnapshotVo snapshot = queryLatestEstimateSnapshot(project.getId());
                 yield snapshot != null
                     ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode() + ":" + snapshot.getId())
                     : TaskCompletionEvaluation.autoPending();
             }
+            case BALANCE_ADJUSTMENT_EXISTS -> hasBalanceAdjustment(project.getId())
+                ? TaskCompletionEvaluation.autoCompleted(AUTO_EVIDENCE_PREFIX + rule.getCode())
+                : TaskCompletionEvaluation.autoPending();
         };
     }
 
@@ -494,12 +550,53 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .eq(DocProjectVisa::getIncludeInProject, true)) > 0;
     }
 
+    private boolean hasEnabledWorkload(Long projectId) {
+        List<Long> includedDrawingIds = drawingMapper.selectList(new LambdaQueryWrapper<DocProjectDrawing>()
+                .select(DocProjectDrawing::getId)
+                .eq(DocProjectDrawing::getProjectId, projectId)
+                .eq(DocProjectDrawing::getIncludeInProject, true))
+            .stream()
+            .map(DocProjectDrawing::getId)
+            .toList();
+        if (includedDrawingIds.isEmpty()) {
+            return false;
+        }
+        return drawingWorkItemMapper.selectCount(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+            .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
+            .in(DocProjectDrawingWorkItem::getDrawingId, includedDrawingIds)) > 0;
+    }
+
+    private boolean hasBalanceAdjustment(Long projectId) {
+        return balanceAdjustmentMapper.selectCount(new LambdaQueryWrapper<DocProjectBalanceAdjustment>()
+            .eq(DocProjectBalanceAdjustment::getProjectId, projectId)
+            .eq(DocProjectBalanceAdjustment::getStatus, "active")) > 0;
+    }
+
     private DocProjectEstimateSnapshotVo queryLatestEstimateSnapshot(Long projectId) {
-        return estimateSnapshotMapper.selectVoOne(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
+        DocProjectEstimateSnapshot snapshot = estimateSnapshotMapper.selectOne(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
             .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
             .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE)
             .orderByDesc(DocProjectEstimateSnapshot::getCreateTime)
             .last("limit 1"));
+        return snapshot == null ? null : toEstimateSnapshotVo(snapshot);
+    }
+
+    private Long queryDrawingCount(Long projectId, boolean includedOnly) {
+        LambdaQueryWrapper<DocProjectDrawing> wrapper = new LambdaQueryWrapper<DocProjectDrawing>()
+            .eq(DocProjectDrawing::getProjectId, projectId);
+        if (includedOnly) {
+            wrapper.eq(DocProjectDrawing::getIncludeInProject, true);
+        }
+        return drawingMapper.selectCount(wrapper);
+    }
+
+    private Long queryVisaCount(Long projectId, boolean includedOnly) {
+        LambdaQueryWrapper<DocProjectVisa> wrapper = new LambdaQueryWrapper<DocProjectVisa>()
+            .eq(DocProjectVisa::getProjectId, projectId);
+        if (includedOnly) {
+            wrapper.eq(DocProjectVisa::getIncludeInProject, true);
+        }
+        return visaMapper.selectCount(wrapper);
     }
 
     private void saveLatestEstimateSnapshot(Long projectId, Long runtimeId) {
@@ -525,6 +622,94 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
             .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE));
         estimateSnapshotMapper.insert(snapshot);
+    }
+
+    private DocDocumentRecordVo queryLatestExportArtifact(Long projectId, Long workflowTemplateId) {
+        List<String> exportPluginIds = listTaskDefinitions(workflowTemplateId, EXPORT_TEXT_NODE_CODE).stream()
+            .filter(this::isPluginTask)
+            .map(DocWorkflowNodeTask::getPluginCodes)
+            .filter(StringUtils::isNotBlank)
+            .flatMap(pluginCodes -> parsePluginCodes(pluginCodes).stream())
+            .distinct()
+            .toList();
+        if (exportPluginIds.isEmpty()) {
+            return null;
+        }
+        DocDocumentRecord record = documentRecordMapper.selectOne(new LambdaQueryWrapper<DocDocumentRecord>()
+            .eq(DocDocumentRecord::getProjectId, projectId)
+            .in(DocDocumentRecord::getPluginId, exportPluginIds)
+            .orderByDesc(DocDocumentRecord::getCreateTime)
+            .orderByDesc(DocDocumentRecord::getId)
+            .last("limit 1"));
+        return record == null ? null : toDocumentRecordVo(record);
+    }
+
+    private DocDocumentRecordVo toDocumentRecordVo(DocDocumentRecord record) {
+        DocDocumentRecordVo vo = new DocDocumentRecordVo();
+        vo.setId(record.getId());
+        vo.setProjectId(record.getProjectId());
+        vo.setNodeInstanceId(record.getNodeInstanceId());
+        vo.setPluginId(record.getPluginId());
+        vo.setSourceType(record.getSourceType());
+        vo.setFileName(record.getFileName());
+        vo.setNasPath(record.getNasPath());
+        vo.setOssId(record.getOssId());
+        vo.setStatus(record.getStatus());
+        vo.setGeneratedAt(record.getGeneratedAt());
+        vo.setArchivedAt(record.getArchivedAt());
+        vo.setCreateTime(record.getCreateTime());
+        return vo;
+    }
+
+    private DocProjectEstimateSnapshotVo toEstimateSnapshotVo(DocProjectEstimateSnapshot snapshot) {
+        DocProjectEstimateSnapshotVo vo = new DocProjectEstimateSnapshotVo();
+        vo.setId(snapshot.getId());
+        vo.setProjectId(snapshot.getProjectId());
+        vo.setEstimateType(snapshot.getEstimateType());
+        vo.setEstimateAmount(snapshot.getEstimateAmount());
+        vo.setDrawingCount(snapshot.getDrawingCount());
+        vo.setVisaCount(snapshot.getVisaCount());
+        vo.setStatus(snapshot.getStatus());
+        vo.setSummary(snapshot.getSummary());
+        vo.setCreateTime(snapshot.getCreateTime());
+        return vo;
+    }
+
+    private TriggerState resolveEstimateTriggerState(List<DocProjectNodeTaskRuntimeVo> currentNodeTasks) {
+        DocProjectNodeTaskRuntimeVo estimateTask = currentNodeTasks.stream()
+            .filter(this::isEstimateTask)
+            .findFirst()
+            .orElse(null);
+        if (estimateTask == null) {
+            return TriggerState.createUnsupported();
+        }
+        if (DocProjectNodeTaskStatus.COMPLETED.getCode().equals(estimateTask.getStatus())) {
+            return TriggerState.createBlocked("当前节点初步估算事项已完成");
+        }
+        if (StringUtils.isBlank(estimateTask.getPluginCodes())) {
+            return TriggerState.createBlocked("当前节点初步估算事项未绑定插件");
+        }
+        return TriggerState.createReady();
+    }
+
+    private TriggerState resolveExportTriggerState(List<DocProjectNodeTaskRuntimeVo> currentNodeTasks, boolean hasEstimateSnapshot) {
+        DocProjectNodeTaskRuntimeVo exportTask = currentNodeTasks.stream()
+            .filter(this::isExportTask)
+            .findFirst()
+            .orElse(null);
+        if (exportTask == null) {
+            return TriggerState.createUnsupported();
+        }
+        if (!hasEstimateSnapshot) {
+            return TriggerState.createBlocked("请先完成初步估算后再导出文本");
+        }
+        if (DocProjectNodeTaskStatus.COMPLETED.getCode().equals(exportTask.getStatus())) {
+            return TriggerState.createBlocked("当前节点文本导出事项已完成");
+        }
+        if (StringUtils.isBlank(exportTask.getPluginCodes())) {
+            return TriggerState.createBlocked("当前节点文本导出事项未绑定插件");
+        }
+        return TriggerState.createReady();
     }
 
     private void markTaskCompleted(DocProjectNodeTaskRuntime runtime, String evidenceRef) {
@@ -573,6 +758,25 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         return StringUtils.equals("plugin_run", definition.getTaskType());
     }
 
+    private boolean isEstimateTask(DocProjectNodeTaskRuntimeVo task) {
+        return StringUtils.equals("plugin_run", task.getTaskType())
+            && (DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS.getCode().equals(task.getCompletionRule())
+            || StringUtils.equals("estimate_run", task.getTaskCode()));
+    }
+
+    private boolean isExportTask(DocProjectNodeTaskRuntimeVo task) {
+        return StringUtils.equals("plugin_run", task.getTaskType())
+            && StringUtils.equals("export_run", task.getTaskCode());
+    }
+
+    private boolean hasBoundPlugins(DocWorkflowNodeTask definition) {
+        return StringUtils.isNotBlank(definition.getPluginCodes());
+    }
+
+    private boolean requiresGeneratedArtifact(DocProjectNodeTaskRuntime taskRuntime) {
+        return StringUtils.equals(EXPORT_TEXT_NODE_CODE, taskRuntime.getNodeCode());
+    }
+
     private boolean usesEstimateSnapshotRule(DocWorkflowNodeTask definition) {
         return resolveCompletionRule(definition) == DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS;
     }
@@ -585,7 +789,9 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
             case "project_info_fill" -> DocWorkflowTaskCompletionRule.PROJECT_BASIC_INFO_PRESENT;
             case "drawing_fill" -> DocWorkflowTaskCompletionRule.DRAWING_EXISTS;
             case "visa_fill" -> DocWorkflowTaskCompletionRule.VISA_EXISTS;
+            case "workload_fill" -> DocWorkflowTaskCompletionRule.WORKLOAD_EXISTS;
             case "estimate_run" -> DocWorkflowTaskCompletionRule.ESTIMATE_SNAPSHOT_EXISTS;
+            case "manager_adjust" -> DocWorkflowTaskCompletionRule.BALANCE_ADJUSTMENT_EXISTS;
             default -> null;
         };
     }
@@ -609,6 +815,20 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
         return StringUtils.isNotBlank(evidenceRef) && evidenceRef.startsWith(AUTO_EVIDENCE_PREFIX);
     }
 
+    private boolean hasGeneratedArtifacts(List<org.dromara.docman.plugin.runtime.PluginExecutionResult> results) {
+        return results.stream().anyMatch(result -> result.getResult() != null
+            && result.getResult().getGeneratedFiles() != null
+            && !result.getResult().getGeneratedFiles().isEmpty());
+    }
+
+    private DocProjectNodeTaskRuntime requiredTaskRuntime(Long projectId, Long taskRuntimeId) {
+        DocProjectNodeTaskRuntime taskRuntime = taskRuntimeMapper.selectById(taskRuntimeId);
+        if (taskRuntime == null || !projectId.equals(taskRuntime.getProjectId())) {
+            throw new ServiceException("节点事项不存在");
+        }
+        return taskRuntime;
+    }
+
     private record TaskCompletionEvaluation(boolean autoManaged, boolean completed, String evidenceRef) {
 
         private static TaskCompletionEvaluation manual() {
@@ -621,6 +841,21 @@ public class DocProjectWorkspaceServiceImpl implements IDocProjectWorkspaceServi
 
         private static TaskCompletionEvaluation autoCompleted(String evidenceRef) {
             return new TaskCompletionEvaluation(true, true, evidenceRef);
+        }
+    }
+
+    private record TriggerState(boolean ready, String blockedReason) {
+
+        private static TriggerState createReady() {
+            return new TriggerState(true, null);
+        }
+
+        private static TriggerState createBlocked(String blockedReason) {
+            return new TriggerState(false, blockedReason);
+        }
+
+        private static TriggerState createUnsupported() {
+            return new TriggerState(false, null);
         }
     }
 

@@ -20,9 +20,9 @@ public interface IDocDocumentRecordService {
 
     void recordUpload(DocDocumentRecordBo bo);
 
-    void recordPluginGenerated(Long projectId, String pluginId, PluginResult.GeneratedFile file);
+    void recordPluginGenerated(Long projectId, String pluginId, Long nodeInstanceId, PluginResult.GeneratedFile file);
 
-    void markLatestUniquePluginArtifactsObsolete(Long projectId, String pluginId);
+    void markLatestUniquePluginArtifactsObsolete(Long projectId, String pluginId, Long nodeInstanceId);
 
     void markObsoleteById(Long id);
 

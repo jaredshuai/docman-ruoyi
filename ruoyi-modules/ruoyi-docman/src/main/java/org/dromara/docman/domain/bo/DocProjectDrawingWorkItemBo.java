@@ -1,6 +1,7 @@
 package org.dromara.docman.domain.bo;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -18,11 +19,19 @@ public class DocProjectDrawingWorkItemBo {
 
     @NotNull(message = "图纸ID不能为空")
     private Long drawingId;
-    private String workItemCode;
+
+    @NotBlank(message = "工作量名称不能为空")
     private String workItemName;
-    private String category;
-    private String unit;
-    private BigDecimal quantity;
-    private Boolean includeInEstimate;
-    private String remark;
+    private BigDecimal technician;
+    private BigDecimal technicianCoefficient;
+    private BigDecimal generalWorker;
+    private BigDecimal generalWorkerCoefficient;
+    private BigDecimal machineShift;
+    private BigDecimal machineShiftUnitPrice;
+    private BigDecimal machineShiftCoefficient;
+    private BigDecimal instrumentShift;
+    private BigDecimal instrumentShiftUnitPrice;
+    private BigDecimal instrumentShiftCoefficient;
+    private BigDecimal materialQuantity;
+    private BigDecimal materialUnitPrice;
 }

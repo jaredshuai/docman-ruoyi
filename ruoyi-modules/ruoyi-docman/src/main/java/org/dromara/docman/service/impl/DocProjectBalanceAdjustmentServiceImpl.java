@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanceAdjustmentService {
 
+    private static final String INITIAL_ESTIMATE_TYPE = "initial_estimate";
+
     private final DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
     private final DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     private final IDocProjectAccessService projectAccessService;
@@ -26,10 +28,11 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
     @Override
     public DocProjectBalanceAdjustmentVo queryLatest(Long projectId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return balanceAdjustmentMapper.selectVoOne(new LambdaQueryWrapper<DocProjectBalanceAdjustment>()
+        DocProjectBalanceAdjustment entity = balanceAdjustmentMapper.selectOne(new LambdaQueryWrapper<DocProjectBalanceAdjustment>()
             .eq(DocProjectBalanceAdjustment::getProjectId, projectId)
             .orderByDesc(DocProjectBalanceAdjustment::getCreateTime)
             .last("limit 1"));
+        return entity == null ? null : toVo(entity);
     }
 
     @Override
@@ -39,22 +42,18 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
         ensureEstimateSnapshotExists(bo.getProjectId());
         validateUpdateScope(bo);
         DocProjectBalanceAdjustment entity = new DocProjectBalanceAdjustment();
-        entity.setId(bo.getId());
         entity.setProjectId(bo.getProjectId());
         entity.setMaterialPrice(bo.getMaterialPrice());
         entity.setBalanceRemark(bo.getBalanceRemark());
         entity.setStatus((bo.getStatus() == null || bo.getStatus().isBlank()) ? "active" : bo.getStatus());
-        if (bo.getId() == null) {
-            balanceAdjustmentMapper.insert(entity);
-        } else {
-            balanceAdjustmentMapper.updateById(entity);
-        }
+        balanceAdjustmentMapper.insert(entity);
         return entity.getId();
     }
 
     private void ensureEstimateSnapshotExists(Long projectId) {
         Long count = estimateSnapshotMapper.selectCount(new LambdaQueryWrapper<DocProjectEstimateSnapshot>()
-            .eq(DocProjectEstimateSnapshot::getProjectId, projectId));
+            .eq(DocProjectEstimateSnapshot::getProjectId, projectId)
+            .eq(DocProjectEstimateSnapshot::getEstimateType, INITIAL_ESTIMATE_TYPE));
         if (count == null || count <= 0) {
             throw new ServiceException("请先完成初步估算后再执行平料");
         }
@@ -71,5 +70,17 @@ public class DocProjectBalanceAdjustmentServiceImpl implements IDocProjectBalanc
         if (!bo.getProjectId().equals(existing.getProjectId())) {
             throw new ServiceException("不允许跨项目修改平料记录");
         }
+    }
+
+    private DocProjectBalanceAdjustmentVo toVo(DocProjectBalanceAdjustment entity) {
+        DocProjectBalanceAdjustmentVo vo = new DocProjectBalanceAdjustmentVo();
+        vo.setId(entity.getId());
+        vo.setProjectId(entity.getProjectId());
+        vo.setMaterialPrice(entity.getMaterialPrice());
+        vo.setBalanceRemark(entity.getBalanceRemark());
+        vo.setStatus(entity.getStatus());
+        vo.setCreateTime(entity.getCreateTime());
+        vo.setUpdateTime(entity.getUpdateTime());
+        return vo;
     }
 }

@@ -11,8 +11,11 @@ import org.dromara.docman.context.NodeContextReader;
 import org.dromara.docman.domain.bo.DocProjectAdvanceNodeBo;
 import org.dromara.docman.domain.bo.DocProjectNodeTaskCompleteBo;
 import org.dromara.docman.domain.entity.DocNodeContext;
+import org.dromara.docman.domain.entity.DocDocumentRecord;
+import org.dromara.docman.domain.entity.DocProjectBalanceAdjustment;
 import org.dromara.docman.domain.entity.DocProject;
 import org.dromara.docman.domain.entity.DocProjectDrawing;
+import org.dromara.docman.domain.entity.DocProjectDrawingWorkItem;
 import org.dromara.docman.domain.entity.DocProjectEstimateSnapshot;
 import org.dromara.docman.domain.entity.DocProjectNodeTaskRuntime;
 import org.dromara.docman.domain.entity.DocProjectRuntime;
@@ -20,8 +23,12 @@ import org.dromara.docman.domain.entity.DocProjectVisa;
 import org.dromara.docman.domain.entity.DocWorkflowNodeTask;
 import org.dromara.docman.domain.entity.DocWorkflowTemplate;
 import org.dromara.docman.domain.entity.DocWorkflowTemplateNode;
+import org.dromara.docman.domain.enums.DocProjectAction;
 import org.dromara.docman.domain.vo.DocProjectEstimateSnapshotVo;
+import org.dromara.docman.mapper.DocDocumentRecordMapper;
+import org.dromara.docman.mapper.DocProjectBalanceAdjustmentMapper;
 import org.dromara.docman.mapper.DocProjectDrawingMapper;
+import org.dromara.docman.mapper.DocProjectDrawingWorkItemMapper;
 import org.dromara.docman.mapper.DocProjectEstimateSnapshotMapper;
 import org.dromara.docman.mapper.DocProjectMapper;
 import org.dromara.docman.mapper.DocProjectNodeTaskRuntimeMapper;
@@ -48,11 +55,13 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,7 +75,10 @@ class DocProjectWorkspaceServiceImplTest {
     @BeforeAll
     static void initTableInfo() {
         initTableInfo(DocProject.class);
+        initTableInfo(DocDocumentRecord.class);
+        initTableInfo(DocProjectBalanceAdjustment.class);
         initTableInfo(DocProjectDrawing.class);
+        initTableInfo(DocProjectDrawingWorkItem.class);
         initTableInfo(DocProjectEstimateSnapshot.class);
         initTableInfo(DocProjectNodeTaskRuntime.class);
         initTableInfo(DocProjectRuntime.class);
@@ -85,6 +97,9 @@ class DocProjectWorkspaceServiceImplTest {
     @Mock private DocWorkflowNodeTaskMapper taskMapper;
     @Mock private DocProjectNodeTaskRuntimeMapper taskRuntimeMapper;
     @Mock private DocProjectDrawingMapper drawingMapper;
+    @Mock private DocDocumentRecordMapper documentRecordMapper;
+    @Mock private DocProjectBalanceAdjustmentMapper balanceAdjustmentMapper;
+    @Mock private DocProjectDrawingWorkItemMapper drawingWorkItemMapper;
     @Mock private DocProjectVisaMapper visaMapper;
     @Mock private DocProjectEstimateSnapshotMapper estimateSnapshotMapper;
     @Mock private INodeContextService nodeContextService;
@@ -157,6 +172,64 @@ class DocProjectWorkspaceServiceImplTest {
     }
 
     @Test
+    void shouldRejectManualCompleteWhenManagerAdjustBalanceMissing() {
+        Long projectId = 1L;
+        Long taskRuntimeId = 5L;
+        DocProject project = project(projectId);
+        DocProjectRuntime projectRuntime = runtime(projectId, 10L, "manager_balance");
+        DocProjectNodeTaskRuntime runtime = new DocProjectNodeTaskRuntime();
+        runtime.setId(taskRuntimeId);
+        runtime.setProjectId(projectId);
+        runtime.setNodeCode("manager_balance");
+        runtime.setTaskCode("manager_adjust");
+        runtime.setStatus("pending");
+
+        DocProjectNodeTaskCompleteBo bo = new DocProjectNodeTaskCompleteBo();
+        bo.setEvidenceRef("manual-balance");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(projectRuntime);
+        when(taskRuntimeMapper.selectById(taskRuntimeId)).thenReturn(runtime);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node(10L, "manager_balance")));
+        when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(task("manager_adjust", "manager_adjust", true, "balance_adjustment_exists", null));
+        when(balanceAdjustmentMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.completeTask(projectId, taskRuntimeId, bo));
+
+        assertEquals("当前事项需先满足业务数据条件后才能完成", ex.getMessage());
+        verify(taskRuntimeMapper, never()).updateById(runtime);
+    }
+
+    @Test
+    void shouldRejectManualCompleteWhenWorkloadMissing() {
+        Long projectId = 1L;
+        Long taskRuntimeId = 6L;
+        DocProject project = project(projectId);
+        DocProjectRuntime projectRuntime = runtime(projectId, 10L, "workload_input");
+        DocProjectNodeTaskRuntime runtime = new DocProjectNodeTaskRuntime();
+        runtime.setId(taskRuntimeId);
+        runtime.setProjectId(projectId);
+        runtime.setNodeCode("workload_input");
+        runtime.setTaskCode("workload_fill");
+        runtime.setStatus("pending");
+
+        DocProjectNodeTaskCompleteBo bo = new DocProjectNodeTaskCompleteBo();
+        bo.setEvidenceRef("manual-workload");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(projectRuntime);
+        when(taskRuntimeMapper.selectById(taskRuntimeId)).thenReturn(runtime);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node(10L, "workload_input")));
+        when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(task("workload_fill", "form_fill", true, "workload_exists", null));
+        when(drawingMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.completeTask(projectId, taskRuntimeId, bo));
+
+        assertEquals("当前事项需先满足业务数据条件后才能完成", ex.getMessage());
+        verify(taskRuntimeMapper, never()).updateById(runtime);
+    }
+
+    @Test
     void shouldAutoCompleteDrawingTaskWhenIncludedDrawingExists() {
         Long projectId = 1L;
         DocProject project = project(projectId);
@@ -180,13 +253,145 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L, 1L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         var workspace = service.getWorkspace(projectId);
 
         assertEquals("completed", workspace.getCurrentNodeTasks().get(0).getStatus());
+        assertEquals(1L, workspace.getDrawingCount());
+        assertEquals(1L, workspace.getIncludedDrawingCount());
+        assertEquals(0L, workspace.getVisaCount());
+        assertEquals(0L, workspace.getIncludedVisaCount());
+        assertEquals(false, workspace.getEstimateTriggerReady());
+        assertEquals(null, workspace.getEstimateTriggerBlockedReason());
+        assertEquals(false, workspace.getExportTriggerReady());
+        assertEquals(null, workspace.getExportTriggerBlockedReason());
         assertEquals("completed", taskRuntime.getStatus());
         verify(taskRuntimeMapper).updateById(taskRuntime);
+    }
+
+    @Test
+    void shouldAutoCompleteManagerAdjustTaskWhenBalanceExists() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "manager_balance");
+        DocWorkflowTemplate template = new DocWorkflowTemplate();
+        template.setId(10L);
+        DocWorkflowTemplateNode node = node(10L, "manager_balance");
+        DocWorkflowNodeTask definition = task("manager_adjust", "manager_adjust", true, "balance_adjustment_exists", null);
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(31L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("manager_balance");
+        taskRuntime.setTaskCode("manager_adjust");
+        taskRuntime.setStatus("pending");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(templateMapper.selectById(10L)).thenReturn(template);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node), List.of(node), List.of(node));
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition), List.of(definition), List.of(definition));
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
+        when(balanceAdjustmentMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        var workspace = service.getWorkspace(projectId);
+
+        assertEquals("completed", workspace.getCurrentNodeTasks().get(0).getStatus());
+        verify(taskRuntimeMapper).updateById(taskRuntime);
+    }
+
+    @Test
+    void shouldAutoCompleteWorkloadTaskWhenEnabledWorkloadExists() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "workload_input");
+        DocWorkflowTemplate template = new DocWorkflowTemplate();
+        template.setId(10L);
+        DocWorkflowTemplateNode node = node(10L, "workload_input");
+        DocWorkflowNodeTask definition = task("workload_fill", "form_fill", true, "workload_exists", null);
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(33L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("workload_input");
+        taskRuntime.setTaskCode("workload_fill");
+        taskRuntime.setStatus("pending");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(templateMapper.selectById(10L)).thenReturn(template);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node), List.of(node), List.of(node));
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition), List.of(definition), List.of(definition));
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L, 0L);
+        DocProjectDrawing drawing = new DocProjectDrawing();
+        drawing.setId(101L);
+        drawing.setProjectId(projectId);
+        drawing.setIncludeInProject(true);
+        when(drawingMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(drawing));
+        when(drawingWorkItemMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+
+        var workspace = service.getWorkspace(projectId);
+
+        assertEquals("completed", workspace.getCurrentNodeTasks().get(0).getStatus());
+        verify(taskRuntimeMapper).updateById(taskRuntime);
+    }
+
+    @Test
+    void shouldExposeLatestExportArtifactFromWorkspaceAggregation() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "export_text");
+        DocWorkflowTemplate template = new DocWorkflowTemplate();
+        template.setId(10L);
+        DocWorkflowTemplateNode exportNode = node(10L, "export_text");
+        DocWorkflowNodeTask exportTask = task("export_run", "plugin_run", true, null, "telecom-export-text-v2");
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(30L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("export_text");
+        taskRuntime.setTaskCode("export_run");
+        taskRuntime.setStatus("pending");
+        DocDocumentRecord latestArtifact = new DocDocumentRecord();
+        latestArtifact.setId(901L);
+        latestArtifact.setProjectId(projectId);
+        latestArtifact.setPluginId("telecom-export-text-v2");
+        latestArtifact.setSourceType("plugin");
+        latestArtifact.setFileName("latest.txt");
+        latestArtifact.setNasPath("/docman/project/1/export/latest.txt");
+        latestArtifact.setStatus("obsolete");
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(templateMapper.selectById(10L)).thenReturn(template);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(
+            List.of(exportNode),
+            List.of(exportNode),
+            List.of(exportNode)
+        );
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(
+            List.of(exportTask),
+            List.of(exportTask),
+            List.of(exportTask)
+        );
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(documentRecordMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(latestArtifact);
+
+        var workspace = service.getWorkspace(projectId);
+
+        assertNotNull(workspace.getLatestExportArtifact());
+        assertEquals(901L, workspace.getLatestExportArtifact().getId());
+        assertEquals("obsolete", workspace.getLatestExportArtifact().getStatus());
+        assertEquals("latest.txt", workspace.getLatestExportArtifact().getFileName());
+        assertEquals(false, workspace.getExportTriggerReady());
+        assertEquals("请先完成初步估算后再导出文本", workspace.getExportTriggerBlockedReason());
     }
 
     @Test
@@ -203,10 +408,10 @@ class DocProjectWorkspaceServiceImplTest {
         taskRuntime.setNodeCode("initial_estimate");
         taskRuntime.setTaskCode("estimate_run");
         taskRuntime.setStatus("pending");
-        DocProjectEstimateSnapshotVo snapshotVo = new DocProjectEstimateSnapshotVo();
-        snapshotVo.setId(99L);
-        snapshotVo.setProjectId(projectId);
-        snapshotVo.setEstimateAmount(new BigDecimal("1234"));
+        DocProjectEstimateSnapshot snapshot = new DocProjectEstimateSnapshot();
+        snapshot.setId(99L);
+        snapshot.setProjectId(projectId);
+        snapshot.setEstimateAmount(new BigDecimal("1234"));
 
         NodeContextReader reader = mock(NodeContextReader.class);
         DocNodeContext nodeContext = mock(DocNodeContext.class);
@@ -220,7 +425,7 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskRuntimeMapper.selectById(8L)).thenReturn(taskRuntime);
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(3L, 3L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L, 1L);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null, snapshotVo);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null, snapshot);
         when(nodeContextService.getOrCreate(runtimeId, "initial_estimate", projectId)).thenReturn(nodeContext);
         when(nodeContext.getId()).thenReturn(66L);
         when(nodeContextService.buildReader(runtimeId)).thenReturn(reader);
@@ -243,6 +448,18 @@ class DocProjectWorkspaceServiceImplTest {
     }
 
     @Test
+    void shouldRejectTriggerEstimateBeforeLoadingProjectWhenNoProjectAccess() {
+        Long projectId = 1L;
+        doThrow(new ServiceException("你无权访问该项目"))
+            .when(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerEstimate(projectId));
+
+        assertEquals("你无权访问该项目", ex.getMessage());
+        verify(projectMapper, never()).selectById(projectId);
+    }
+
+    @Test
     void shouldRejectExportWhenEstimateSnapshotMissing() {
         Long projectId = 1L;
         DocProject project = project(projectId);
@@ -260,31 +477,44 @@ class DocProjectWorkspaceServiceImplTest {
         when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node(10L, "export_text")));
         when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime));
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
 
         assertEquals("请先完成初步估算后再导出文本", ex.getMessage());
+        verify(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         verify(workflowNodeApplicationService, never()).triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void shouldTriggerExportWhenAtExportNodeAndEstimateExists() {
+    void shouldRejectTriggerExportBeforeLoadingProjectWhenNoProjectAccess() {
+        Long projectId = 1L;
+        doThrow(new ServiceException("你无权访问该项目"))
+            .when(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
+
+        assertEquals("你无权访问该项目", ex.getMessage());
+        verify(projectMapper, never()).selectById(projectId);
+    }
+
+    @Test
+    void shouldTriggerExportWhenConfiguredPluginBindingChanges() {
         Long projectId = 1L;
         Long runtimeId = 100L;
         DocProject project = project(projectId);
         DocProjectRuntime runtime = runtime(projectId, 10L, "export_text");
         DocWorkflowTemplateNode node = node(10L, "export_text");
-        DocWorkflowNodeTask definition = task("export_run", "plugin_run", true, null, "telecom-export-text-mock");
+        DocWorkflowNodeTask definition = task("export_run", "plugin_run", true, null, "telecom-export-text-v2");
         DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
         taskRuntime.setId(19L);
         taskRuntime.setProjectId(projectId);
         taskRuntime.setNodeCode("export_text");
         taskRuntime.setTaskCode("export_run");
         taskRuntime.setStatus("pending");
-        DocProjectEstimateSnapshotVo snapshotVo = new DocProjectEstimateSnapshotVo();
-        snapshotVo.setId(101L);
-        snapshotVo.setProjectId(projectId);
+        DocProjectEstimateSnapshot snapshot = new DocProjectEstimateSnapshot();
+        snapshot.setId(101L);
+        snapshot.setProjectId(projectId);
 
         DocNodeContext nodeContext = mock(DocNodeContext.class);
 
@@ -294,17 +524,19 @@ class DocProjectWorkspaceServiceImplTest {
         when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
         when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(definition, definition);
         when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime), List.of(taskRuntime));
-        when(taskRuntimeMapper.selectById(19L)).thenReturn(taskRuntime);
-        when(estimateSnapshotMapper.selectVoOne(any(LambdaQueryWrapper.class))).thenReturn(snapshotVo);
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(snapshot);
         when(nodeContextService.getOrCreate(runtimeId, "export_text", projectId)).thenReturn(nodeContext);
         when(nodeContext.getId()).thenReturn(77L);
         when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(2L);
         when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
         when(workflowNodeApplicationService.triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(List.of(PluginExecutionResult.builder()
-                .pluginId("telecom-export-text-mock")
+                .pluginId("telecom-export-text-v2")
                 .costMs(12L)
-                .result(PluginResult.ok())
+                .result(PluginResult.ok(List.of(PluginResult.GeneratedFile.builder()
+                    .fileName("telecom.txt")
+                    .nasPath("/docman/project/1/export/telecom.txt")
+                    .build())))
                 .build()));
 
         try (MockedStatic<LoginHelper> loginHelper = mockStatic(LoginHelper.class)) {
@@ -314,7 +546,52 @@ class DocProjectWorkspaceServiceImplTest {
 
         verify(workflowNodeApplicationService).triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any());
         verify(taskRuntimeMapper).updateById(taskRuntime);
+        verify(projectAccessService).assertAction(projectId, DocProjectAction.EDIT_PROJECT);
         assertEquals("completed", taskRuntime.getStatus());
+    }
+
+    @Test
+    void shouldRejectExportWhenPluginSucceedsWithoutGeneratedFiles() {
+        Long projectId = 1L;
+        DocProject project = project(projectId);
+        DocProjectRuntime runtime = runtime(projectId, 10L, "export_text");
+        DocWorkflowTemplateNode node = node(10L, "export_text");
+        DocWorkflowNodeTask definition = task("export_run", "plugin_run", true, null, "telecom-export-text-v2");
+        DocProjectNodeTaskRuntime taskRuntime = new DocProjectNodeTaskRuntime();
+        taskRuntime.setId(20L);
+        taskRuntime.setProjectId(projectId);
+        taskRuntime.setNodeCode("export_text");
+        taskRuntime.setTaskCode("export_run");
+        taskRuntime.setStatus("pending");
+        DocProjectEstimateSnapshot snapshot = new DocProjectEstimateSnapshot();
+        snapshot.setId(102L);
+        snapshot.setProjectId(projectId);
+
+        DocNodeContext nodeContext = mock(DocNodeContext.class);
+
+        when(projectMapper.selectById(projectId)).thenReturn(project);
+        when(runtimeMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(runtime);
+        when(nodeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(node), List.of(node), List.of(node));
+        when(taskMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(definition));
+        when(taskMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(definition, definition);
+        when(taskRuntimeMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(taskRuntime), List.of(taskRuntime));
+        when(estimateSnapshotMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(snapshot);
+        when(nodeContextService.getOrCreate(100L, "export_text", projectId)).thenReturn(nodeContext);
+        when(nodeContext.getId()).thenReturn(77L);
+        when(drawingMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(2L);
+        when(visaMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+        when(workflowNodeApplicationService.triggerBoundPlugins(any(), any(), any(), any(), any(), any(), any()))
+            .thenReturn(List.of(PluginExecutionResult.builder()
+                .pluginId("telecom-export-text-v2")
+                .costMs(12L)
+                .result(PluginResult.ok())
+                .build()));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.triggerExportText(projectId));
+
+        assertEquals("文本导出未生成有效产物，事项未完成", ex.getMessage());
+        verify(taskRuntimeMapper, never()).updateById(taskRuntime);
+        assertEquals("pending", taskRuntime.getStatus());
     }
 
     @Test

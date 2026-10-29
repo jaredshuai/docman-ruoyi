@@ -3,6 +3,7 @@ package org.dromara.docman.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -81,13 +83,14 @@ class DocProjectServiceImplTest {
         try (MockedStatic<LoginHelper> loginHelper = mockStatic(LoginHelper.class)) {
             loginHelper.when(LoginHelper::isSuperAdmin).thenReturn(false);
             loginHelper.when(LoginHelper::getUserId).thenReturn(66L);
-            when(projectAccessService.listAccessibleProjectIds(66L)).thenReturn(List.of());
+            when(projectMapper.selectAccessibleProjectVoPage(any(Page.class), eq(66L), eq(false), any(LambdaQueryWrapper.class)))
+                .thenReturn(new Page<>(1, 10));
 
             TableDataInfo<DocProjectVo> result = service.queryPageList(new DocProjectBo(), new PageQuery(10, 1));
 
             assertEquals(0L, result.getTotal());
             assertTrue(result.getRows().isEmpty());
-            verify(projectMapper, never()).selectVoPage(any(), any(LambdaQueryWrapper.class));
+            verify(projectMapper, never()).selectVoPage(any(Page.class), any(LambdaQueryWrapper.class));
         }
     }
 

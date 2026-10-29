@@ -11,6 +11,7 @@ import org.dromara.docman.service.IDocProjectTypeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -21,18 +22,23 @@ public class DocProjectTypeServiceImpl implements IDocProjectTypeService {
 
     @Override
     public List<DocProjectTypeVo> listAll() {
-        return projectTypeMapper.selectVoList(new LambdaQueryWrapper<DocProjectType>()
+        List<DocProjectType> entities = projectTypeMapper.selectList(new LambdaQueryWrapper<DocProjectType>()
             .orderByAsc(DocProjectType::getSortOrder)
             .orderByAsc(DocProjectType::getCreateTime));
+        List<DocProjectTypeVo> result = new ArrayList<>(entities.size());
+        for (DocProjectType entity : entities) {
+            result.add(toVo(entity));
+        }
+        return result;
     }
 
     @Override
     public DocProjectTypeVo queryById(Long id) {
-        DocProjectTypeVo vo = projectTypeMapper.selectVoById(id);
-        if (vo == null) {
+        DocProjectType entity = projectTypeMapper.selectById(id);
+        if (entity == null) {
             throw new ServiceException("项目类型不存在");
         }
-        return vo;
+        return toVo(entity);
     }
 
     @Override
@@ -75,5 +81,19 @@ public class DocProjectTypeServiceImpl implements IDocProjectTypeService {
 
     private String defaultStatus(String status) {
         return (status == null || status.isBlank()) ? "active" : status;
+    }
+
+    private DocProjectTypeVo toVo(DocProjectType entity) {
+        DocProjectTypeVo vo = new DocProjectTypeVo();
+        vo.setId(entity.getId());
+        vo.setCode(entity.getCode());
+        vo.setName(entity.getName());
+        vo.setCustomerType(entity.getCustomerType());
+        vo.setDescription(entity.getDescription());
+        vo.setSortOrder(entity.getSortOrder());
+        vo.setStatus(entity.getStatus());
+        vo.setCreateTime(entity.getCreateTime());
+        vo.setUpdateTime(entity.getUpdateTime());
+        return vo;
     }
 }

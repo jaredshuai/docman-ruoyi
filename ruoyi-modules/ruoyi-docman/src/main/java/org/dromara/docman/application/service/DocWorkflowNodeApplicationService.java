@@ -161,6 +161,7 @@ public class DocWorkflowNodeApplicationService {
                 .projectId(projectId)
                 .projectName(projectName)
                 .processInstanceId(processInstanceId)
+                .nodeContextId(nodeContext.getId())
                 .nodeCode(nodeCode)
                 .contextReader(reader)
                 .processWriter((field, value) -> contextService.putProcessVariable(nodeContext.getId(), field, value))
@@ -188,10 +189,10 @@ public class DocWorkflowNodeApplicationService {
 
         if (result.getGeneratedFiles() != null) {
             if (!result.getGeneratedFiles().isEmpty()) {
-                documentRecordService.markLatestUniquePluginArtifactsObsolete(projectId, plugin.getPluginId());
+                documentRecordService.markLatestUniquePluginArtifactsObsolete(projectId, plugin.getPluginId(), ctx.getNodeContextId());
             }
             for (PluginResult.GeneratedFile file : result.getGeneratedFiles()) {
-                documentRecordService.recordPluginGenerated(projectId, plugin.getPluginId(), file);
+                documentRecordService.recordPluginGenerated(projectId, plugin.getPluginId(), ctx.getNodeContextId(), file);
             }
         }
         log.info("插件执行成功: {}, cost={}ms", plugin.getPluginId(), executionResult.getCostMs());

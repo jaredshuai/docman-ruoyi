@@ -15,23 +15,37 @@ import org.dromara.docman.service.IDocProjectDrawingWorkItemService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DocProjectDrawingWorkItemServiceImpl implements IDocProjectDrawingWorkItemService {
 
+    private static final BigDecimal DEFAULT_QUANTITY = BigDecimal.ZERO;
+    private static final BigDecimal DEFAULT_COEFFICIENT = BigDecimal.ONE;
+
     private final DocProjectDrawingWorkItemMapper workItemMapper;
     private final DocProjectDrawingMapper drawingMapper;
     private final IDocProjectAccessService projectAccessService;
 
     @Override
+    public List<DocProjectDrawingWorkItemVo> listByProject(Long projectId) {
+        projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
+        return toVos(workItemMapper.selectList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+            .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
+            .orderByAsc(DocProjectDrawingWorkItem::getDrawingId)
+            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime)));
+    }
+
+    @Override
     public List<DocProjectDrawingWorkItemVo> listByDrawing(Long projectId, Long drawingId) {
         projectAccessService.assertAction(projectId, DocProjectAction.VIEW_PROJECT);
-        return workItemMapper.selectVoList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
+        return toVos(workItemMapper.selectList(new LambdaQueryWrapper<DocProjectDrawingWorkItem>()
             .eq(DocProjectDrawingWorkItem::getProjectId, projectId)
             .eq(DocProjectDrawingWorkItem::getDrawingId, drawingId)
-            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime));
+            .orderByAsc(DocProjectDrawingWorkItem::getCreateTime)));
     }
 
     @Override
@@ -55,13 +69,19 @@ public class DocProjectDrawingWorkItemServiceImpl implements IDocProjectDrawingW
         entity.setId(bo.getId());
         entity.setProjectId(bo.getProjectId());
         entity.setDrawingId(bo.getDrawingId());
-        entity.setWorkItemCode(bo.getWorkItemCode());
         entity.setWorkItemName(bo.getWorkItemName());
-        entity.setCategory(bo.getCategory());
-        entity.setUnit(bo.getUnit());
-        entity.setQuantity(bo.getQuantity());
-        entity.setIncludeInEstimate(Boolean.TRUE.equals(bo.getIncludeInEstimate()));
-        entity.setRemark(bo.getRemark());
+        entity.setTechnician(defaultQuantity(bo.getTechnician()));
+        entity.setTechnicianCoefficient(defaultCoefficient(bo.getTechnicianCoefficient()));
+        entity.setGeneralWorker(defaultQuantity(bo.getGeneralWorker()));
+        entity.setGeneralWorkerCoefficient(defaultCoefficient(bo.getGeneralWorkerCoefficient()));
+        entity.setMachineShift(defaultQuantity(bo.getMachineShift()));
+        entity.setMachineShiftUnitPrice(defaultQuantity(bo.getMachineShiftUnitPrice()));
+        entity.setMachineShiftCoefficient(defaultCoefficient(bo.getMachineShiftCoefficient()));
+        entity.setInstrumentShift(defaultQuantity(bo.getInstrumentShift()));
+        entity.setInstrumentShiftUnitPrice(defaultQuantity(bo.getInstrumentShiftUnitPrice()));
+        entity.setInstrumentShiftCoefficient(defaultCoefficient(bo.getInstrumentShiftCoefficient()));
+        entity.setMaterialQuantity(defaultQuantity(bo.getMaterialQuantity()));
+        entity.setMaterialUnitPrice(defaultQuantity(bo.getMaterialUnitPrice()));
         if (bo.getId() == null) {
             workItemMapper.insert(entity);
         } else {
@@ -82,5 +102,44 @@ public class DocProjectDrawingWorkItemServiceImpl implements IDocProjectDrawingW
                 }
             }
         }
+    }
+
+    private List<DocProjectDrawingWorkItemVo> toVos(List<DocProjectDrawingWorkItem> entities) {
+        List<DocProjectDrawingWorkItemVo> result = new ArrayList<>();
+        for (DocProjectDrawingWorkItem entity : entities) {
+            result.add(toVo(entity));
+        }
+        return result;
+    }
+
+    private DocProjectDrawingWorkItemVo toVo(DocProjectDrawingWorkItem entity) {
+        DocProjectDrawingWorkItemVo vo = new DocProjectDrawingWorkItemVo();
+        vo.setId(entity.getId());
+        vo.setProjectId(entity.getProjectId());
+        vo.setDrawingId(entity.getDrawingId());
+        vo.setWorkItemName(entity.getWorkItemName());
+        vo.setTechnician(entity.getTechnician());
+        vo.setTechnicianCoefficient(entity.getTechnicianCoefficient());
+        vo.setGeneralWorker(entity.getGeneralWorker());
+        vo.setGeneralWorkerCoefficient(entity.getGeneralWorkerCoefficient());
+        vo.setMachineShift(entity.getMachineShift());
+        vo.setMachineShiftUnitPrice(entity.getMachineShiftUnitPrice());
+        vo.setMachineShiftCoefficient(entity.getMachineShiftCoefficient());
+        vo.setInstrumentShift(entity.getInstrumentShift());
+        vo.setInstrumentShiftUnitPrice(entity.getInstrumentShiftUnitPrice());
+        vo.setInstrumentShiftCoefficient(entity.getInstrumentShiftCoefficient());
+        vo.setMaterialQuantity(entity.getMaterialQuantity());
+        vo.setMaterialUnitPrice(entity.getMaterialUnitPrice());
+        vo.setCreateTime(entity.getCreateTime());
+        vo.setUpdateTime(entity.getUpdateTime());
+        return vo;
+    }
+
+    private BigDecimal defaultQuantity(BigDecimal value) {
+        return value == null ? DEFAULT_QUANTITY : value;
+    }
+
+    private BigDecimal defaultCoefficient(BigDecimal value) {
+        return value == null ? DEFAULT_COEFFICIENT : value;
     }
 }

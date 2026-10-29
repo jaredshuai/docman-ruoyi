@@ -293,7 +293,7 @@ class DocWorkflowNodeApplicationServiceTest {
         service.handleNodeFinished(event);
 
         ArgumentCaptor<PluginResult.GeneratedFile> fileCaptor = ArgumentCaptor.forClass(PluginResult.GeneratedFile.class);
-        verify(documentRecordService, times(1)).recordPluginGenerated(eq(10L), eq("test-plugin"), fileCaptor.capture());
+        verify(documentRecordService, times(1)).recordPluginGenerated(eq(10L), eq("test-plugin"), eq(1000L), fileCaptor.capture());
         assertEquals("test.pdf", fileCaptor.getValue().getFileName());
         assertEquals("/test/path", fileCaptor.getValue().getNasPath());
     }
@@ -345,7 +345,7 @@ class DocWorkflowNodeApplicationServiceTest {
 
         service.handleNodeFinished(event);
 
-        verify(documentRecordService, never()).recordPluginGenerated(anyLong(), anyString(), any());
+        verify(documentRecordService, never()).recordPluginGenerated(anyLong(), anyString(), anyLong(), any());
     }
 
     /**
@@ -395,7 +395,7 @@ class DocWorkflowNodeApplicationServiceTest {
 
         service.handleNodeFinished(event);
 
-        verify(documentRecordService, never()).recordPluginGenerated(anyLong(), anyString(), any());
+        verify(documentRecordService, never()).recordPluginGenerated(anyLong(), anyString(), anyLong(), any());
     }
 
     @Test
@@ -445,6 +445,6 @@ class DocWorkflowNodeApplicationServiceTest {
         service.handleNodeFinished(event);
 
         // Verify file not recorded on failure
-        verify(documentRecordService, never()).recordPluginGenerated(anyLong(), anyString(), any());
+        verify(documentRecordService, never()).recordPluginGenerated(anyLong(), anyString(), anyLong(), any());
     }
 }
