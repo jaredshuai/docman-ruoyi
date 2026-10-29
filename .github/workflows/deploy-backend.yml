@@ -68,15 +68,15 @@ jobs:
           test -n "${MAVEN_REGISTRY_USERNAME}"
           test -n "${MAVEN_REGISTRY_PASSWORD}"
           mkdir -p "${HOME}/.m2"
-          cat > "${HOME}/.m2/settings.xml" <<'EOF'
+          cat > "${HOME}/.m2/settings.xml" <<EOF
           <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
             <servers>
               <server>
                 <id>jxccs-authz-java</id>
-                <username>${env.MAVEN_REGISTRY_USERNAME}</username>
-                <password>${env.MAVEN_REGISTRY_PASSWORD}</password>
+                <username>${MAVEN_REGISTRY_USERNAME}</username>
+                <password>${MAVEN_REGISTRY_PASSWORD}</password>
               </server>
             </servers>
             <profiles>
