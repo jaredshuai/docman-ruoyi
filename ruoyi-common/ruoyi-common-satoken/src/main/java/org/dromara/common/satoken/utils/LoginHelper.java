@@ -6,6 +6,7 @@ import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.dromara.common.core.constant.SystemConstants;
@@ -39,6 +40,8 @@ public class LoginHelper {
     public static final String DEPT_NAME_KEY = "deptName";
     public static final String DEPT_CATEGORY_KEY = "deptCategory";
     public static final String CLIENT_KEY = "clientid";
+    public static final String CANONICAL_ISSUER_KEY = "canonicalIssuer";
+    public static final String CANONICAL_SUBJECT_KEY = "canonicalSubject";
 
     /**
      * 登录系统 基于 设备类型
@@ -49,14 +52,19 @@ public class LoginHelper {
      */
     public static void login(LoginUser loginUser, SaLoginParameter model) {
         model = ObjectUtil.defaultIfNull(model, new SaLoginParameter());
-        StpUtil.login(loginUser.getLoginId(),
-            model.setExtra(TENANT_KEY, loginUser.getTenantId())
-                .setExtra(USER_KEY, loginUser.getUserId())
-                .setExtra(USER_NAME_KEY, loginUser.getUsername())
-                .setExtra(DEPT_KEY, loginUser.getDeptId())
-                .setExtra(DEPT_NAME_KEY, loginUser.getDeptName())
-                .setExtra(DEPT_CATEGORY_KEY, loginUser.getDeptCategory())
-        );
+        SaLoginParameter parameter = model.setExtra(TENANT_KEY, loginUser.getTenantId())
+            .setExtra(USER_KEY, loginUser.getUserId())
+            .setExtra(USER_NAME_KEY, loginUser.getUsername())
+            .setExtra(DEPT_KEY, loginUser.getDeptId())
+            .setExtra(DEPT_NAME_KEY, loginUser.getDeptName())
+            .setExtra(DEPT_CATEGORY_KEY, loginUser.getDeptCategory());
+        if (StrUtil.isNotBlank(loginUser.getCanonicalIssuer())) {
+            parameter.setExtra(CANONICAL_ISSUER_KEY, loginUser.getCanonicalIssuer());
+        }
+        if (StrUtil.isNotBlank(loginUser.getCanonicalSubject())) {
+            parameter.setExtra(CANONICAL_SUBJECT_KEY, loginUser.getCanonicalSubject());
+        }
+        StpUtil.login(loginUser.getLoginId(), parameter);
         StpUtil.getTokenSession().set(LOGIN_USER_KEY, loginUser);
     }
 
@@ -131,6 +139,20 @@ public class LoginHelper {
      */
     public static String getDeptCategory() {
         return Convert.toStr(getExtra(DEPT_CATEGORY_KEY));
+    }
+
+    /**
+     * 获取规范化签发方
+     */
+    public static String getCanonicalIssuer() {
+        return Convert.toStr(getExtra(CANONICAL_ISSUER_KEY));
+    }
+
+    /**
+     * 获取规范化主体
+     */
+    public static String getCanonicalSubject() {
+        return Convert.toStr(getExtra(CANONICAL_SUBJECT_KEY));
     }
 
     /**

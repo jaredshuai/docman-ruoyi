@@ -98,6 +98,13 @@
             <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
         </dependency>
 
+        <!-- Authorization Center Java SDK, official 0.1.1 from company internal Maven Registry -->
+        <dependency>
+            <groupId>com.jxccs</groupId>
+            <artifactId>jxccs-authz-client</artifactId>
+            <version>0.1.1</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

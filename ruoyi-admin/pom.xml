@@ -104,6 +104,12 @@
             <artifactId>spring-boot-admin-starter-client</artifactId>
         </dependency>
 
+        <!-- OIDC ID Token 验签与 JWKS 校验，仅使用 Spring Security 的 JOSE 组件，不引入 security filter chain -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

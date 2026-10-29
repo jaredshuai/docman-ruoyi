@@ -142,6 +142,32 @@ tenant:
     - doc_plugin_execution_log
     - doc_node_deadline
 
+# Casdoor OIDC 登录（authorization-code + PKCE）与授权中心客户端
+# 所有值只来自环境变量/运行时 Secret；client secret 禁止写入仓库。
+docman:
+  oidc:
+    enabled: ${DOCMAN_OIDC_ENABLED:false}
+    issuer: ${DOCMAN_OIDC_ISSUER:}
+    canonical-issuer: ${DOCMAN_OIDC_CANONICAL_ISSUER:}
+    jwks-uri: ${DOCMAN_OIDC_JWKS_URI:}
+    audience: ${DOCMAN_OIDC_AUDIENCE:}
+    client-id: ${DOCMAN_OIDC_CLIENT_ID:}
+    client-secret: ${DOCMAN_OIDC_CLIENT_SECRET:}
+    authorization-uri: ${DOCMAN_OIDC_AUTHORIZATION_URI:}
+    token-uri: ${DOCMAN_OIDC_TOKEN_URI:}
+    redirect-uri: ${DOCMAN_OIDC_REDIRECT_URI:}
+    tenant-id: ${DOCMAN_OIDC_TENANT_ID:}
+    scope: ${DOCMAN_OIDC_SCOPE:}
+  authorization:
+    enabled: ${DOCMAN_AUTHORIZATION_ENABLED:false}
+    mode: ${DOCMAN_AUTHORIZATION_MODE:}
+    provider: ${DOCMAN_AUTHORIZATION_PROVIDER:}
+    application: ${DOCMAN_AUTHORIZATION_APPLICATION:}
+    environment: ${DOCMAN_AUTHORIZATION_ENVIRONMENT:}
+    base-url: ${DOCMAN_AUTHORIZATION_BASE_URL:}
+    fixture-scenario: ${DOCMAN_AUTHORIZATION_FIXTURE_SCENARIO:}
+    service-credential: ${DOCMAN_AUTHORIZATION_SERVICE_CREDENTIAL:}
+
 # MyBatisPlus配置
 # https://baomidou.com/config/
 mybatis-plus:

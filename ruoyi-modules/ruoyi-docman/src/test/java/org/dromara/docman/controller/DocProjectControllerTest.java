@@ -3,6 +3,8 @@ package org.dromara.docman.controller;
 import org.dromara.common.core.domain.R;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.docman.application.authz.DocProjectAuthorizationException;
+import org.dromara.docman.application.authz.DocProjectAuthorizationService;
 import org.dromara.docman.application.service.DocProjectApplicationService;
 import org.dromara.docman.application.service.DocProjectQueryApplicationService;
 import org.dromara.docman.domain.bo.DocProjectBo;
@@ -12,13 +14,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,9 +39,12 @@ class DocProjectControllerTest {
     @Mock
     private DocProjectQueryApplicationService projectQueryApplicationService;
 
+    @Mock
+    private DocProjectAuthorizationService projectAuthorizationService;
+
     @Test
     void shouldDelegateListQuery() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         DocProjectBo bo = new DocProjectBo();
         PageQuery pageQuery = new PageQuery(10, 1);
         TableDataInfo<DocProjectVo> expected = TableDataInfo.build(List.of(new DocProjectVo()));
@@ -48,7 +57,7 @@ class DocProjectControllerTest {
 
     @Test
     void shouldWrapProjectInfoWithOkResponse() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         DocProjectVo project = new DocProjectVo();
         project.setId(99L);
         when(projectQueryApplicationService.getById(99L)).thenReturn(project);
@@ -57,11 +66,28 @@ class DocProjectControllerTest {
 
         assertEquals(R.SUCCESS, result.getCode());
         assertEquals(project, result.getData());
+        verify(projectAuthorizationService).checkRead(99L, project);
+    }
+
+    @Test
+    void shouldFailClosedWithoutAnyBusinessWriteWhenAuthorizationDenied() {
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
+        DocProjectVo project = new DocProjectVo();
+        project.setId(99L);
+        when(projectQueryApplicationService.getById(99L)).thenReturn(project);
+        doThrow(DocProjectAuthorizationException.forbidden("denied"))
+            .when(projectAuthorizationService).checkRead(99L, project);
+
+        DocProjectAuthorizationException ex = assertThrows(DocProjectAuthorizationException.class,
+            () -> controller.getInfo(99L));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.status());
+        verifyNoInteractions(projectApplicationService);
     }
 
     @Test
     void shouldWrapMyProjectListWithOkResponse() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         DocProjectBo bo = new DocProjectBo();
         DocProjectVo project = new DocProjectVo();
         project.setId(8L);
@@ -76,7 +102,7 @@ class DocProjectControllerTest {
 
     @Test
     void shouldCreateProjectAndReturnId() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         DocProjectBo bo = new DocProjectBo();
         bo.setName("新项目");
         when(projectApplicationService.create(bo)).thenReturn(123L);
@@ -90,7 +116,7 @@ class DocProjectControllerTest {
 
     @Test
     void shouldRejectEditWhenIdIsMissing() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         DocProjectBo bo = new DocProjectBo();
         bo.setName("待修改项目");
 
@@ -104,7 +130,7 @@ class DocProjectControllerTest {
 
     @Test
     void shouldUpdateProjectWhenIdExists() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         DocProjectBo bo = new DocProjectBo();
         bo.setId(7L);
 
@@ -116,7 +142,7 @@ class DocProjectControllerTest {
 
     @Test
     void shouldDeleteProjects() {
-        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService);
+        DocProjectController controller = new DocProjectController(projectApplicationService, projectQueryApplicationService, projectAuthorizationService);
         List<Long> ids = List.of(1L, 2L);
 
         R<Void> result = controller.remove(ids);

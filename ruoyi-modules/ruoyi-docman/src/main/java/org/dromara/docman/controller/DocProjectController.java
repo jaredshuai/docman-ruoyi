@@ -8,6 +8,7 @@ import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.common.web.core.BaseController;
+import org.dromara.docman.application.authz.DocProjectAuthorizationService;
 import org.dromara.docman.application.service.DocProjectApplicationService;
 import org.dromara.docman.application.service.DocProjectQueryApplicationService;
 import org.dromara.docman.domain.bo.DocProjectBo;
@@ -25,6 +26,7 @@ public class DocProjectController extends BaseController {
 
     private final DocProjectApplicationService projectApplicationService;
     private final DocProjectQueryApplicationService projectQueryApplicationService;
+    private final DocProjectAuthorizationService projectAuthorizationService;
 
     /**
      * 分页查询项目列表。
@@ -60,7 +62,9 @@ public class DocProjectController extends BaseController {
     @SaCheckPermission("docman:project:query")
     @GetMapping("/{id}")
     public R<DocProjectVo> getInfo(@PathVariable Long id) {
-        return R.ok(projectQueryApplicationService.getById(id));
+        DocProjectVo project = projectQueryApplicationService.getById(id);
+        projectAuthorizationService.checkRead(id, project);
+        return R.ok(project);
     }
 
     /**
